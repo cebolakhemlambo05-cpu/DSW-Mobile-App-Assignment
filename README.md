@@ -1,4 +1,4 @@
-# Safari Planner — React Native (Expo)
+# ALL-IN-ONE-PLANNER — React Native (Expo)
 
 A port of the web prototype to a real React Native app, using Expo + plain `StyleSheet` (no NativeWind).
 

@@ -78,7 +78,7 @@ function LoginScreen({ onSuccess, onRegister, onBack, }) {
             <Icons_1.IconBack color={theme_1.colors.sand}/>
           </react_native_1.Pressable>
           <react_native_1.View style={styles.headerTextWrap}>
-            <react_native_1.Text style={styles.brand}>All-in-one-planner</react_native_1.Text>
+            <react_native_1.Text style={styles.brand}>ALL-IN-ONE-PLANNER</react_native_1.Text>
             <react_native_1.Text style={styles.title}>Welcome back</react_native_1.Text>
             <react_native_1.Text style={styles.subtitle}>Sign in to access your day plans</react_native_1.Text>
           </react_native_1.View>

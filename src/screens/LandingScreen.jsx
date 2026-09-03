@@ -26,7 +26,7 @@ function LandingScreen({ onMode }) {
             <react_native_1.View style={styles.brandIcon}>
               <Icons_1.IconHome />
             </react_native_1.View>
-            <react_native_1.Text style={styles.brandLabel}>All-in-one-planner</react_native_1.Text>
+            <react_native_1.Text style={styles.brandLabel}>ALL-IN-ONE-PLANNER</react_native_1.Text>
           </react_native_1.View>
 
           <react_native_1.Text style={styles.headline}>
