@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "Safari Planner",
+    "slug": "safari-planner-rn",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#E8DCC4"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": { "supportsTablet": true },
+    "android": {
+      "adaptiveIcon": { "backgroundColor": "#E8DCC4" }
+    }
+  }
+}
