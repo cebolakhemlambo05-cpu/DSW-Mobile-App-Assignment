@@ -1,0 +1,28 @@
+# Secrets — never commit these
+.env
+.env.local
+.env.*.local
+
+# User data — contains real emails, password hashes, and OTPs.
+# Recreated automatically by auth.js on first run, so nothing is lost.
+data/
+
+# Dependencies
+node_modules/
+
+# Expo / build output
+.expo/
+dist/
+dist-local-data/
+web-build/
+
+# Native
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# OS/editor cruft
+.DS_Store
+Thumbs.db

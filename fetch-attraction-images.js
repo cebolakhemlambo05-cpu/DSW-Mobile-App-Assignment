@@ -1,0 +1,1 @@
+require("./src/data/fetch-attraction-images.js");
