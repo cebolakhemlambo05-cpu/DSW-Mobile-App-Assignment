@@ -5,7 +5,8 @@
 
 # User data — contains real emails, password hashes, and OTPs.
 # Recreated automatically by auth.js on first run, so nothing is lost.
-data/
+/data/
+!src/data/
 
 # Dependencies
 node_modules/
