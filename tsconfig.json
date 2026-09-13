@@ -8,5 +8,10 @@
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["App.jsx", "src/**/*.js", "src/**/*.jsx"]
+  "include": [
+    "App.jsx",
+    "src/**/*.js",
+    "src/**/*.jsx"
+  ],
+  "extends": "expo/tsconfig.base"
 }
