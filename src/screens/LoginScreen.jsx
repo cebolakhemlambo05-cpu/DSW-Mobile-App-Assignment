@@ -16,28 +16,41 @@ import { colors, fonts } from "../theme/theme";
 import Field from "../components/Field";
 import { IconBack } from "../components/Icons";
 import { cleanEmail } from "../utils/validation";
+import BrandLogo from "../components/BrandLogo";
 
-export default function LoginScreen({ onSuccess, onLogin, onVerifyOtp, onRegister, onForgot, onBack }) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [otp, setOtp] = useState("");
-  const [challengeToken, setChallengeToken] = useState("");
-  const [authStep, setAuthStep] = useState("password");
+const ADMIN_EMAIL = 'allinoneplanner@gmail.com';
+const ADMIN_PASSWORD = 'allinoneplanner@123';
+
+export default function LoginScreen({
+  onSuccess,
+  onLogin,
+  onVerifyOtp,
+  onRegister,
+  onForgot,
+  onBack,
+}) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [otp, setOtp] = useState('');
+  const [challengeToken, setChallengeToken] = useState('');
+  const [authStep, setAuthStep] = useState('password');
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [showPw, setShowPw] = useState(false);
+  const isAdminCredentials =
+    email.trim().toLowerCase() === ADMIN_EMAIL && password === ADMIN_PASSWORD;
 
   const validate = () => {
     const nextErrors = {};
 
     if (!email.trim()) {
-      nextErrors.email = "Email is required";
+      nextErrors.email = 'Email is required';
     } else if (!/\S+@\S+\.\S+/.test(email)) {
-      nextErrors.email = "Enter a valid email address";
+      nextErrors.email = 'Enter a valid email address';
     }
 
     if (!password) {
-      nextErrors.password = "Password is required";
+      nextErrors.password = 'Password is required';
     }
 
     return nextErrors;
@@ -63,8 +76,8 @@ export default function LoginScreen({ onSuccess, onLogin, onVerifyOtp, onRegiste
       if (result.otpRequired) {
         setChallengeToken(result.challengeToken);
         setEmail(result.email || email);
-        setOtp("");
-        setAuthStep("otp");
+        setOtp('');
+        setAuthStep('otp');
         setErrors({});
         return;
       }
@@ -72,20 +85,24 @@ export default function LoginScreen({ onSuccess, onLogin, onVerifyOtp, onRegiste
       onSuccess(result.userName);
     } catch (error) {
       setLoading(false);
-      setErrors(error.errors || { form: "Unable to sign in right now." });
+      setErrors(error.errors || { form: 'Unable to sign in right now.' });
     }
   };
 
   const verifyOtp = async () => {
-    const cleanOtp = otp.replace(/\D/g, "");
+    const cleanOtp = otp.replace(/\D/g, '');
     if (!/^\d{6}$/.test(cleanOtp)) {
-      setErrors({ otp: "Enter the 6-digit code sent to your email." });
+      setErrors({ otp: 'Enter the 6-digit code sent to your email.' });
       return;
     }
 
     setLoading(true);
     try {
-      const result = await onVerifyOtp({ email, challengeToken, otp: cleanOtp });
+      const result = await onVerifyOtp({
+        email,
+        challengeToken,
+        otp: cleanOtp,
+      });
       setLoading(false);
 
       if (!result.ok) {
@@ -96,40 +113,58 @@ export default function LoginScreen({ onSuccess, onLogin, onVerifyOtp, onRegiste
       onSuccess(result.userName);
     } catch (error) {
       setLoading(false);
-      setErrors(error.errors || { form: "Unable to verify your sign-in code right now." });
+      setErrors(
+        error.errors || {
+          form: 'Unable to verify your sign-in code right now.',
+        }
+      );
     }
   };
 
   const returnToPasswordStep = () => {
-    setAuthStep("password");
-    setChallengeToken("");
-    setOtp("");
+    setAuthStep('password');
+    setChallengeToken('');
+    setOtp('');
     setErrors({});
   };
 
   return (
-    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+    <KeyboardAvoidingView
+      style={styles.flex}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
       <View style={styles.container}>
-        <SafeAreaView edges={["top"]} style={styles.header}>
-          <Pressable onPress={authStep === "otp" ? returnToPasswordStep : onBack} style={styles.backBtn}>
+        <SafeAreaView edges={['top']} style={styles.header}>
+          <Pressable
+            onPress={authStep === 'otp' ? returnToPasswordStep : onBack}
+            style={styles.backBtn}
+          >
             <IconBack color={colors.sand} />
           </Pressable>
 
           <View style={styles.headerTextWrap}>
-            <Text style={styles.brand}>ALL-IN-ONE-PLANNER</Text>
-            <Text style={styles.title}>{authStep === "otp" ? "Enter security code" : "Welcome back"}</Text>
+            <BrandLogo dark compact />
+            <Text style={styles.title}>
+              {authStep === 'otp' ? 'Enter security code' : 'Welcome back'}
+            </Text>
             <Text style={styles.subtitle}>
-              {authStep === "otp" ? "Check your email for the 6-digit code" : "Sign in to access your day plans"}
+              {authStep === 'otp'
+                ? 'Check your email for the 6-digit code'
+                : 'Sign in to access your day plans'}
             </Text>
           </View>
         </SafeAreaView>
 
         <View style={styles.curve} />
 
-        <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          style={styles.body}
+          contentContainerStyle={styles.bodyContent}
+          keyboardShouldPersistTaps="handled"
+        >
           {!!errors.form && <Text style={styles.formError}>{errors.form}</Text>}
 
-          {authStep === "password" ? (
+          {authStep === 'password' ? (
             <>
               <Field
                 label="Email address"
@@ -157,21 +192,47 @@ export default function LoginScreen({ onSuccess, onLogin, onVerifyOtp, onRegiste
                     placeholderTextColor="rgba(62,50,38,0.35)"
                     secureTextEntry={!showPw}
                     onSubmitEditing={submit}
-                    style={[styles.pwInput, { borderColor: errors.password ? colors.terra : "rgba(62,50,38,0.12)" }]}
+                    style={[
+                      styles.pwInput,
+                      {
+                        borderColor: errors.password
+                          ? colors.terra
+                          : 'rgba(62,50,38,0.12)',
+                      },
+                    ]}
                   />
-                  <Pressable onPress={() => setShowPw((prev) => !prev)} style={styles.showBtn}>
-                    <Text style={styles.showBtnText}>{showPw ? "Hide" : "Show"}</Text>
+                  <Pressable
+                    onPress={() => setShowPw((prev) => !prev)}
+                    style={styles.showBtn}
+                  >
+                    <Text style={styles.showBtnText}>
+                      {showPw ? 'Hide' : 'Show'}
+                    </Text>
                   </Pressable>
                 </View>
-                {!!errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
+                {!!errors.password && (
+                  <Text style={styles.errorText}>{errors.password}</Text>
+                )}
               </View>
 
               <Pressable onPress={onForgot} style={styles.forgotWrap}>
                 <Text style={styles.forgotText}>Forgot password?</Text>
               </Pressable>
 
-              <Pressable onPress={submit} disabled={loading} style={[styles.submitBtn, loading && { opacity: 0.8 }]}>
-                {loading ? <ActivityIndicator color={colors.ivory} /> : <Text style={styles.submitText}>Send security code</Text>}
+              <Pressable
+                onPress={submit}
+                disabled={loading}
+                style={[styles.submitBtn, loading && { opacity: 0.8 }]}
+              >
+                {loading ? (
+                  <ActivityIndicator color={colors.ivory} />
+                ) : (
+                  <Text style={styles.submitText}>
+                    {isAdminCredentials
+                      ? 'Sign in as admin'
+                      : 'Send security code'}
+                  </Text>
+                )}
               </Pressable>
 
               <View style={styles.dividerRow}>
@@ -186,12 +247,14 @@ export default function LoginScreen({ onSuccess, onLogin, onVerifyOtp, onRegiste
             </>
           ) : (
             <>
-              <Text style={styles.otpMessage}>We sent a one-time code to {email}.</Text>
+              <Text style={styles.otpMessage}>
+                We sent a one-time code to {email}.
+              </Text>
               <Field
                 label="Security code"
                 value={otp}
                 onChangeText={(value) => {
-                  setOtp(value.replace(/\D/g, "").slice(0, 6));
+                  setOtp(value.replace(/\D/g, '').slice(0, 6));
                   setErrors((prev) => ({ ...prev, otp: undefined }));
                 }}
                 placeholder="123456"
@@ -199,17 +262,31 @@ export default function LoginScreen({ onSuccess, onLogin, onVerifyOtp, onRegiste
                 error={errors.otp}
               />
 
-              <Pressable onPress={verifyOtp} disabled={loading} style={[styles.submitBtn, loading && { opacity: 0.8 }]}>
-                {loading ? <ActivityIndicator color={colors.ivory} /> : <Text style={styles.submitText}>Verify and sign in</Text>}
+              <Pressable
+                onPress={verifyOtp}
+                disabled={loading}
+                style={[styles.submitBtn, loading && { opacity: 0.8 }]}
+              >
+                {loading ? (
+                  <ActivityIndicator color={colors.ivory} />
+                ) : (
+                  <Text style={styles.submitText}>Verify and sign in</Text>
+                )}
               </Pressable>
 
-              <Pressable onPress={submit} disabled={loading} style={styles.resendWrap}>
+              <Pressable
+                onPress={submit}
+                disabled={loading}
+                style={styles.resendWrap}
+              >
                 <Text style={styles.forgotText}>Resend code</Text>
               </Pressable>
             </>
           )}
 
-          <Text style={styles.terms}>By signing in you agree to our Terms of Service & Privacy Policy</Text>
+          <Text style={styles.terms}>
+            By signing in you agree to our Terms of Service & Privacy Policy
+          </Text>
         </ScrollView>
       </View>
     </KeyboardAvoidingView>

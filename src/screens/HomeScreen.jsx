@@ -45,8 +45,9 @@ const useAttractions_1 = require("../hooks/useAttractions");
 const Icons_1 = require("../components/Icons");
 const BudgetSlider_1 = __importDefault(require("../components/BudgetSlider"));
 const AttractionCard_1 = __importDefault(require("../components/AttractionCard"));
+const BrandLogo_1 = __importDefault(require("../components/BrandLogo"));
 const CATEGORIES = ["All", "Wildlife", "Mountains", "City", "Coast"];
-function HomeScreen({ onSelect, onViewPlan, planCount, currentUser, onSignOut, }) {
+function HomeScreen({ onSelect, onViewPlan, planCount, currentUser, onSignOut, onViewProfile, }) {
     const [query, setQuery] = (0, react_1.useState)("");
   const { attractions } = (0, useAttractions_1.useAttractions)(query);
     const [budget, setBudget] = (0, react_1.useState)(2500);
@@ -78,16 +79,13 @@ function HomeScreen({ onSelect, onViewPlan, planCount, currentUser, onSignOut, }
     return (<react_native_1.View style={styles.screen}>
       <react_native_safe_area_context_1.SafeAreaView edges={["top"]} style={styles.header}>
         <react_native_1.View style={styles.headerTop}>
-          <react_native_1.View style={styles.brandRow}>
-            <react_native_1.View style={styles.brandIcon}>
-              <Icons_1.IconHome />
-            </react_native_1.View>
-            <react_native_1.Text style={styles.brandLabel}>ALL-IN-ONE-PLANNER</react_native_1.Text>
-          </react_native_1.View>
+          <BrandLogo_1.default dark compact />
           <react_native_1.View style={styles.userRow}>
-            <react_native_1.Text style={styles.userGreeting}>
-              Hi, <react_native_1.Text style={styles.userName}>{currentUser}</react_native_1.Text>
-            </react_native_1.Text>
+            <react_native_1.Pressable onPress={onViewProfile}>
+              <react_native_1.Text style={styles.userGreeting}>
+                Hi, <react_native_1.Text style={styles.userName}>{currentUser?.firstName || currentUser}</react_native_1.Text>
+              </react_native_1.Text>
+            </react_native_1.Pressable>
             <react_native_1.Pressable onPress={onSignOut} style={styles.signOutBtn}>
               <react_native_1.Text style={styles.signOutText}>Sign out</react_native_1.Text>
             </react_native_1.Pressable>

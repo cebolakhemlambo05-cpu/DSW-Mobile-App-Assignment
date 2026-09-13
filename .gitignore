@@ -1,15 +1,23 @@
 # Secrets — never commit these
+.gitignore.local
 .env
 .env.local
 .env.*.local
+**/.env
+**/.env.*
+!.env.example
+!**/.env.example
 
 # User data — contains real emails, password hashes, and OTPs.
 # Recreated automatically by auth.js on first run, so nothing is lost.
-/data/
-!src/data/
+/data/*
+!/data/images/
+/data/images/*
+!/data/images/logo.png
 
 # Dependencies
 node_modules/
+backend/.cache/
 
 # Expo / build output
 .expo/

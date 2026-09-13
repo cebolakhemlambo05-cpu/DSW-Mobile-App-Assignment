@@ -10,20 +10,32 @@ dotenv.config({ path: path.join(backendDirectory, ".env") });
 
 const app = express();
 const port = Number(process.env.PORT || 4000);
-const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+const apiKey = process.env.GOOGLE_PLACES_API_KEY;
 const cacheTtl = Number(process.env.CACHE_TTL_MS || 6 * 60 * 60 * 1000);
-const cachePath = path.join(backendDirectory, ".cache", "places.json");
-const nearbyUrl = "https://places.googleapis.com/v1/places:searchNearby";
-const textSearchUrl = "https://places.googleapis.com/v1/places:searchText";
-const includedTypes = ["tourist_attraction", "museum", "park", "zoo", "amusement_park", "art_gallery"];
-const southAfrica = { minLat: -34.85, maxLat: -22.1, minLng: 16.45, maxLng: 32.9 };
+const cachePath = path.join(backendDirectory, '.cache', 'places.json');
+const nearbyUrl = 'https://places.googleapis.com/v1/places:searchNearby';
+const textSearchUrl = 'https://places.googleapis.com/v1/places:searchText';
+const includedTypes = [
+  'tourist_attraction',
+  'museum',
+  'park',
+  'zoo',
+  'amusement_park',
+  'art_gallery',
+];
+const southAfrica = {
+  minLat: -34.85,
+  maxLat: -22.1,
+  minLng: 16.45,
+  maxLng: 32.9,
+};
 
 app.use(cors());
 app.use(express.json());
 
 async function readCache() {
   try {
-    return JSON.parse(await fs.readFile(cachePath, "utf8"));
+    return JSON.parse(await fs.readFile(cachePath, 'utf8'));
   } catch {
     return {};
   }
@@ -35,17 +47,20 @@ async function writeCache(cache) {
 }
 
 async function googlePlaces(url, body, fieldMask) {
-  if (!apiKey) throw new Error("GOOGLE_MAPS_API_KEY is not configured");
+  if (!apiKey) throw new Error('GOOGLE_PLACES_API_KEY is not configured');
   const response = await fetch(url, {
-    method: "POST",
+    method: 'POST',
     headers: {
-      "Content-Type": "application/json",
-      "X-Goog-Api-Key": apiKey,
-      "X-Goog-FieldMask": fieldMask,
+      'Content-Type': 'application/json',
+      'X-Goog-Api-Key': apiKey,
+      'X-Goog-FieldMask': fieldMask,
     },
     body: JSON.stringify(body),
   });
-  if (!response.ok) throw new Error(`Google Places returned ${response.status}: ${await response.text()}`);
+  if (!response.ok)
+    throw new Error(
+      `Google Places returned ${response.status}: ${await response.text()}`
+    );
   return response.json();
 }
 
