@@ -27,6 +27,8 @@ function ActivityCard({ activity: act, selected, onToggle, }) {
           <react_native_1.Text style={[styles.duration, { color: selected ? theme_1.colors.ivory : theme_1.colors.charcoal, opacity: selected ? 0.8 : 0.55 }]}>
             {act.duration}
           </react_native_1.Text>
+          {!!act.description && <react_native_1.Text style={[styles.description, { color: selected ? theme_1.colors.ivory : theme_1.colors.charcoal }]} numberOfLines={2}>{act.description}</react_native_1.Text>}
+          {!!act.bookingRequired && <react_native_1.Text style={[styles.booking, { color: selected ? theme_1.colors.ivory : theme_1.colors.terra }]}>Booking required</react_native_1.Text>}
         </react_native_1.View>
         <react_native_1.Text style={[styles.price, { color: selected ? theme_1.colors.ivory : theme_1.colors.charcoal }]}>
           {(0, format_1.fmt)(act.pricePerPerson)}
@@ -52,6 +54,8 @@ const styles = react_native_1.StyleSheet.create({
     nameRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 3 },
     name: { fontSize: 14, fontFamily: theme_1.fonts.bodySemiBold },
     duration: { fontSize: 11 },
+    description: { fontSize: 11, marginTop: 4, opacity: 0.7 },
+    booking: { fontSize: 10, fontFamily: theme_1.fonts.bodySemiBold, marginTop: 4 },
     price: { fontSize: 16, fontFamily: theme_1.fonts.display },
     pp: { fontSize: 10, fontFamily: theme_1.fonts.body, opacity: 0.6 },
 });

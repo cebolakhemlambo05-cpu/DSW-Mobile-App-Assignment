@@ -1,195 +1,213 @@
-"use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.default = HomeScreen;
-const react_1 = __importStar(require("react"));
-const react_native_1 = require("react-native");
-const react_native_safe_area_context_1 = require("react-native-safe-area-context");
-const theme_1 = require("../theme/theme");
-const attractions_1 = require("../data/attractions");
-const Icons_1 = require("../components/Icons");
-const BudgetSlider_1 = __importDefault(require("../components/BudgetSlider"));
-const AttractionCard_1 = __importDefault(require("../components/AttractionCard"));
-const CATEGORIES = ["All", "Wildlife", "Mountains", "City", "Coast"];
-function HomeScreen({ onSelect, onViewPlan, planCount, currentUser, onSignOut, }) {
-    const [query, setQuery] = (0, react_1.useState)("");
-    const [budget, setBudget] = (0, react_1.useState)(2500);
-    const [category, setCategory] = (0, react_1.useState)("All");
-    const [localOnly, setLocalOnly] = (0, react_1.useState)(false);
-    const filtered = (0, react_1.useMemo)(() => {
-        return attractions_1.ATTRACTIONS.filter((a) => {
-            if (localOnly && !a.localFav)
-                return false;
-            if (category !== "All" && a.category !== category)
-                return false;
-            if (query) {
-                const q = query.toLowerCase();
-                if (!a.name.toLowerCase().includes(q) && !a.location.toLowerCase().includes(q) && !a.category.toLowerCase().includes(q)) {
-                    const keywords = {
-                        wildlife: ["wildlife", "safari", "animals", "game"],
-                        mountains: ["mountain", "hiking", "hike", "peak"],
-                        city: ["city", "urban", "nightlife", "culture"],
-                        coast: ["coast", "beach", "ocean", "sea"],
-                    };
-                    const matched = Object.entries(keywords).some(([cat, kws]) => kws.some((kw) => q.includes(kw)) && a.category.toLowerCase() === cat);
-                    if (!matched)
-                        return false;
+import React, { useMemo, useState } from "react";
+import { View, Text, TextInput, Pressable, FlatList, StyleSheet } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { colors, fonts } from "../theme/theme";
+import { IconSearch, IconCalendar, IconGem, IconHome } from "../components/Icons";
+import BudgetSlider from "../components/BudgetSlider";
+import AttractionCard from "../components/AttractionCard";
+import AppFooter from "../components/AppFooter";
+import { ATTRACTIONS } from "../data/attractions";
+
+const CATEGORIES = ["All", ...new Set(ATTRACTIONS.map((attraction) => attraction.category))];
+
+export default function HomeScreen({ onSelect, onViewPlan, planCount, currentUser, onSignOut, onPrivacy, onAbout }) {
+  const [query, setQuery] = useState("");
+  const [budget, setBudget] = useState(8000);
+  const [category, setCategory] = useState("All");
+  const [localOnly, setLocalOnly] = useState(false);
+
+  const filtered = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+
+    return ATTRACTIONS.filter((a) => {
+      if (localOnly && !a.localFav) return false;
+      if (category !== "All" && a.category !== category) return false;
+      if (
+        normalizedQuery &&
+        ![a.name, a.location, a.category, a.description].some((value) =>
+          value.toLowerCase().includes(normalizedQuery)
+        )
+      ) {
+        return false;
+      }
+      if (!a.accommodations?.length) return true;
+
+      const cheapest = Math.min(...a.accommodations.map((ac) => ac.pricePerNight));
+      return cheapest <= budget;
+    });
+  }, [query, category, localOnly, budget]);
+
+  return (
+    <View style={styles.screen}>
+      <SafeAreaView edges={["top"]} style={styles.header}>
+        <View style={styles.headerTop}>
+          <View style={styles.brandRow}>
+            <View style={styles.brandIcon}>
+              <IconHome />
+            </View>
+            <Text style={styles.brandLabel}>ALL-IN-ONE-PLANNER</Text>
+          </View>
+          <View style={styles.userRow}>
+            <Text style={styles.userGreeting}>
+              <Text>Hi, </Text>
+              <Text style={styles.userName}>{currentUser}</Text>
+            </Text>
+            <Pressable onPress={onSignOut} style={styles.signOutBtn}>
+              <Text style={styles.signOutText}>Sign out</Text>
+            </Pressable>
+          </View>
+        </View>
+        <View style={styles.discoverRow}>
+          <View>
+            <Text style={styles.discoverLabel}>Discover</Text>
+            <Text style={styles.discoverTitle}>South Africa</Text>
+          </View>
+          <Pressable onPress={onViewPlan} style={styles.planBtn}>
+            <IconCalendar color={colors.ivory} />
+            <Text style={styles.planBtnText}>Day Plan</Text>
+            {planCount > 0 && (
+              <View style={styles.planBadge}>
+                <Text style={styles.planBadgeText}>{planCount}</Text>
+              </View>
+            )}
+          </Pressable>
+        </View>
+      </SafeAreaView>
+
+      <FlatList
+        data={filtered}
+        keyExtractor={(a) => a.id}
+        numColumns={2}
+        columnWrapperStyle={{ gap: 12 }}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        ListHeaderComponent={
+          <View style={{ gap: 16, marginBottom: 16 }}>
+            <View style={styles.searchWrap}>
+              <View style={styles.searchIcon}>
+                <IconSearch color="rgba(62,50,38,0.4)" />
+              </View>
+              <TextInput
+                value={query}
+                onChangeText={(value) => setQuery(value.slice(0, 100))}
+                maxLength={100}
+                placeholder='Search by vibe — "wildlife", "mountains", "Cape Town"…'
+                placeholderTextColor="rgba(62,50,38,0.4)"
+                style={styles.searchInput}
+              />
+            </View>
+
+            <BudgetSlider value={budget} onChange={setBudget} sublabel="Accommodation is filtered to match" />
+
+            <View style={styles.chipsRow}>
+              <FlatList
+                data={CATEGORIES}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                keyExtractor={(c) => c}
+                ItemSeparatorComponent={() => <View style={{ width: 8 }} />}
+                renderItem={({ item: cat }) => (
+                  <Pressable
+                    onPress={() => setCategory(cat)}
+                    style={[
+                      styles.chip,
+                      category === cat
+                        ? { backgroundColor: colors.savanna }
+                        : { backgroundColor: colors.ivory, borderWidth: 1, borderColor: "rgba(62,50,38,0.15)" },
+                    ]}
+                  >
+                    <Text style={[styles.chipText, { color: category === cat ? colors.ivory : colors.charcoal }]}>{cat}</Text>
+                  </Pressable>
+                )}
+                ListFooterComponent={
+                  <Pressable
+                    onPress={() => setLocalOnly(!localOnly)}
+                    style={[
+                      styles.localChip,
+                      localOnly
+                        ? { backgroundColor: colors.sky }
+                        : { backgroundColor: colors.ivory, borderWidth: 1, borderColor: "rgba(122,158,159,0.4)" },
+                    ]}
+                  >
+                    <IconGem color={localOnly ? colors.ivory : colors.sky} />
+                    <Text style={[styles.chipText, { color: localOnly ? colors.ivory : colors.charcoal, marginLeft: 6 }]}>
+                      Local Favs
+                    </Text>
+                  </Pressable>
                 }
-            }
-            const cheapest = Math.min(...a.accommodations.map((ac) => ac.pricePerNight));
-            return cheapest <= budget;
-        });
-    }, [query, budget, category, localOnly]);
-    return (<react_native_1.View style={styles.screen}>
-      <react_native_safe_area_context_1.SafeAreaView edges={["top"]} style={styles.header}>
-        <react_native_1.View style={styles.headerTop}>
-          <react_native_1.View style={styles.brandRow}>
-            <react_native_1.View style={styles.brandIcon}>
-              <Icons_1.IconHome />
-            </react_native_1.View>
-            <react_native_1.Text style={styles.brandLabel}>ALL-IN-ONE-PLANNER</react_native_1.Text>
-          </react_native_1.View>
-          <react_native_1.View style={styles.userRow}>
-            <react_native_1.Text style={styles.userGreeting}>
-              Hi, <react_native_1.Text style={styles.userName}>{currentUser}</react_native_1.Text>
-            </react_native_1.Text>
-            <react_native_1.Pressable onPress={onSignOut} style={styles.signOutBtn}>
-              <react_native_1.Text style={styles.signOutText}>Sign out</react_native_1.Text>
-            </react_native_1.Pressable>
-          </react_native_1.View>
-        </react_native_1.View>
-        <react_native_1.View style={styles.discoverRow}>
-          <react_native_1.View>
-            <react_native_1.Text style={styles.discoverLabel}>Discover</react_native_1.Text>
-            <react_native_1.Text style={styles.discoverTitle}>South Africa</react_native_1.Text>
-          </react_native_1.View>
-          <react_native_1.Pressable onPress={onViewPlan} style={styles.planBtn}>
-            <Icons_1.IconCalendar color={theme_1.colors.ivory}/>
-            <react_native_1.Text style={styles.planBtnText}>Day Plan</react_native_1.Text>
-            {planCount > 0 && (<react_native_1.View style={styles.planBadge}>
-                <react_native_1.Text style={styles.planBadgeText}>{planCount}</react_native_1.Text>
-              </react_native_1.View>)}
-          </react_native_1.Pressable>
-        </react_native_1.View>
-      </react_native_safe_area_context_1.SafeAreaView>
+              />
+            </View>
 
-      <react_native_1.FlatList data={filtered} keyExtractor={(a) => a.id} numColumns={2} columnWrapperStyle={{ gap: 12 }} contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false} ListHeaderComponent={<react_native_1.View style={{ gap: 16, marginBottom: 16 }}>
-            <react_native_1.View style={styles.searchWrap}>
-              <react_native_1.View style={styles.searchIcon}>
-                <Icons_1.IconSearch color="rgba(62,50,38,0.4)"/>
-              </react_native_1.View>
-              <react_native_1.TextInput value={query} onChangeText={setQuery} placeholder='Search by vibe — "wildlife", "mountains", "Cape Town"…' placeholderTextColor="rgba(62,50,38,0.4)" style={styles.searchInput}/>
-            </react_native_1.View>
-
-            <BudgetSlider_1.default value={budget} onChange={setBudget} sublabel="Accommodation is filtered to match"/>
-
-            <react_native_1.View style={styles.chipsRow}>
-              <react_native_1.FlatList data={CATEGORIES} horizontal showsHorizontalScrollIndicator={false} keyExtractor={(c) => c} ItemSeparatorComponent={() => <react_native_1.View style={{ width: 8 }}/>} renderItem={({ item: cat }) => (<react_native_1.Pressable onPress={() => setCategory(cat)} style={[
-                    styles.chip,
-                    category === cat ? { backgroundColor: theme_1.colors.savanna } : { backgroundColor: theme_1.colors.ivory, borderWidth: 1, borderColor: "rgba(62,50,38,0.15)" },
-                ]}>
-                    <react_native_1.Text style={[styles.chipText, { color: category === cat ? theme_1.colors.ivory : theme_1.colors.charcoal }]}>{cat}</react_native_1.Text>
-                  </react_native_1.Pressable>)} ListFooterComponent={<react_native_1.Pressable onPress={() => setLocalOnly(!localOnly)} style={[
-                    styles.localChip,
-                    localOnly ? { backgroundColor: theme_1.colors.sky } : { backgroundColor: theme_1.colors.ivory, borderWidth: 1, borderColor: "rgba(122,158,159,0.4)" },
-                ]}>
-                    <Icons_1.IconGem color={localOnly ? theme_1.colors.ivory : theme_1.colors.sky}/>
-                    <react_native_1.Text style={[styles.chipText, { color: localOnly ? theme_1.colors.ivory : theme_1.colors.charcoal, marginLeft: 6 }]}>Local Favs</react_native_1.Text>
-                  </react_native_1.Pressable>}/>
-            </react_native_1.View>
-
-            <react_native_1.View style={styles.countRow}>
-              <react_native_1.Text style={styles.countText}>
+            <View style={styles.countRow}>
+              <Text style={styles.countText}>
                 {filtered.length} attraction{filtered.length !== 1 ? "s" : ""} within budget
-              </react_native_1.Text>
-              {filtered.length === 0 && <react_native_1.Text style={styles.raiseBudget}>Try raising your budget</react_native_1.Text>}
-            </react_native_1.View>
-          </react_native_1.View>} renderItem={({ item }) => (<react_native_1.View style={{ flex: 1 }}>
-            <AttractionCard_1.default attraction={item} budget={budget} onPress={() => onSelect(item)}/>
-          </react_native_1.View>)} ListEmptyComponent={<react_native_1.View style={styles.emptyState}>
-            <react_native_1.Text style={styles.emptyEmoji}>🌿</react_native_1.Text>
-            <react_native_1.Text style={styles.emptyTitle}>No matches found</react_native_1.Text>
-            <react_native_1.Text style={styles.emptySubtitle}>Try different keywords or raise your budget</react_native_1.Text>
-          </react_native_1.View>}/>
-    </react_native_1.View>);
+              </Text>
+              {filtered.length === 0 && <Text style={styles.raiseBudget}>Try raising your budget</Text>}
+            </View>
+          </View>
+        }
+        renderItem={({ item }) => (
+          <View style={{ flex: 1 }}>
+            <AttractionCard attraction={item} budget={budget} onPress={() => onSelect(item)} />
+          </View>
+        )}
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyEmoji}>🌿</Text>
+            <Text style={styles.emptyTitle}>No matches found</Text>
+            <Text style={styles.emptySubtitle}>Try different keywords or raise your budget</Text>
+          </View>
+        }
+      />
+      <AppFooter onPrivacy={onPrivacy} onAbout={onAbout} />
+    </View>
+  );
 }
-const styles = react_native_1.StyleSheet.create({
-    screen: { flex: 1, backgroundColor: theme_1.colors.sand },
-    header: { backgroundColor: theme_1.colors.savanna, paddingHorizontal: 20, paddingTop: 4, paddingBottom: 12 },
-    headerTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
-    brandRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-    brandIcon: { width: 24, height: 24, borderRadius: 6, backgroundColor: theme_1.colors.terra, alignItems: "center", justifyContent: "center" },
-    brandLabel: { fontSize: 10, fontFamily: theme_1.fonts.bodyBold, letterSpacing: 2, textTransform: "uppercase", color: "rgba(232,220,196,0.8)" },
-    userRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-    userGreeting: { fontSize: 11, color: "rgba(232,220,196,0.6)" },
-    userName: { fontFamily: theme_1.fonts.bodySemiBold, color: "rgba(232,220,196,0.9)", textTransform: "capitalize" },
-    signOutBtn: { paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8, backgroundColor: "rgba(255,255,255,0.1)" },
-    signOutText: { fontSize: 11, color: "rgba(232,220,196,0.7)" },
-    discoverRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-    discoverLabel: { fontSize: 10, fontFamily: theme_1.fonts.bodySemiBold, letterSpacing: 1.5, textTransform: "uppercase", color: "rgba(232,220,196,0.5)" },
-    discoverTitle: { fontSize: 20, fontFamily: theme_1.fonts.display, color: theme_1.colors.ivory, marginTop: 2 },
-    planBtn: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.1)" },
-    planBtnText: { fontSize: 13, fontFamily: theme_1.fonts.bodyMedium, color: theme_1.colors.ivory },
-    planBadge: { position: "absolute", top: -6, right: -6, width: 20, height: 20, borderRadius: 10, backgroundColor: theme_1.colors.terra, alignItems: "center", justifyContent: "center" },
-    planBadgeText: { fontSize: 10, fontFamily: theme_1.fonts.bodyBold, color: theme_1.colors.ivory },
-    listContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 24 },
-    searchWrap: { position: "relative", justifyContent: "center" },
-    searchIcon: { position: "absolute", left: 16, zIndex: 1 },
-    searchInput: {
-        width: "100%",
-        paddingLeft: 44,
-        paddingRight: 16,
-        paddingVertical: 14,
-        borderRadius: 18,
-        fontSize: 14,
-        fontFamily: theme_1.fonts.body,
-        backgroundColor: theme_1.colors.ivory,
-        color: theme_1.colors.charcoal,
-    },
-    chipsRow: {},
-    chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999 },
-    chipText: { fontSize: 12, fontFamily: theme_1.fonts.bodySemiBold },
-    localChip: { flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, marginLeft: 8 },
-    countRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-    countText: { fontSize: 11, color: theme_1.colors.charcoal, opacity: 0.5 },
-    raiseBudget: { fontSize: 11, color: theme_1.colors.terra },
-    emptyState: { paddingVertical: 60, alignItems: "center" },
-    emptyEmoji: { fontSize: 40, marginBottom: 10 },
-    emptyTitle: { fontFamily: theme_1.fonts.bodySemiBold, color: theme_1.colors.charcoal, fontSize: 15 },
-    emptySubtitle: { fontSize: 13, color: theme_1.colors.charcoal, opacity: 0.5, marginTop: 4 },
+
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.sand },
+  header: { backgroundColor: colors.savanna, paddingHorizontal: 20, paddingTop: 4, paddingBottom: 12 },
+  headerTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
+  brandRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  brandIcon: { width: 24, height: 24, borderRadius: 6, backgroundColor: colors.terra, alignItems: "center", justifyContent: "center" },
+  brandLabel: { fontSize: 10, fontFamily: fonts.bodyBold, letterSpacing: 2, textTransform: "uppercase", color: "rgba(232,220,196,0.8)" },
+  userRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  userGreeting: { fontSize: 11, color: "rgba(232,220,196,0.6)" },
+  userName: { fontFamily: fonts.bodySemiBold, color: "rgba(232,220,196,0.9)", textTransform: "capitalize" },
+  signOutBtn: { paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8, backgroundColor: "rgba(255,255,255,0.1)" },
+  signOutText: { fontSize: 11, color: "rgba(232,220,196,0.7)" },
+  discoverRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  discoverLabel: { fontSize: 10, fontFamily: fonts.bodySemiBold, letterSpacing: 1.5, textTransform: "uppercase", color: "rgba(232,220,196,0.5)" },
+  discoverTitle: { fontSize: 20, fontFamily: fonts.display, color: colors.ivory, marginTop: 2 },
+  planBtn: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.1)" },
+  planBtnText: { fontSize: 13, fontFamily: fonts.bodyMedium, color: colors.ivory },
+  planBadge: { position: "absolute", top: -6, right: -6, width: 20, height: 20, borderRadius: 10, backgroundColor: colors.terra, alignItems: "center", justifyContent: "center" },
+  planBadgeText: { fontSize: 10, fontFamily: fonts.bodyBold, color: colors.ivory },
+  listContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 24 },
+  searchWrap: { position: "relative", justifyContent: "center" },
+  searchIcon: { position: "absolute", left: 16, zIndex: 1 },
+  searchInput: {
+    width: "100%",
+    paddingLeft: 44,
+    paddingRight: 16,
+    paddingVertical: 14,
+    borderRadius: 18,
+    fontSize: 14,
+    fontFamily: fonts.body,
+    backgroundColor: colors.ivory,
+    color: colors.charcoal,
+  },
+  chipsRow: {},
+  chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999 },
+  chipText: { fontSize: 12, fontFamily: fonts.bodySemiBold },
+  localChip: { flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, marginLeft: 8 },
+  countRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  countText: { fontSize: 11, color: colors.charcoal, opacity: 0.5 },
+  raiseBudget: { fontSize: 11, color: colors.terra },
+  loadingText: { fontSize: 12, color: colors.charcoal, opacity: 0.6 },
+  errorText: { fontSize: 12, color: colors.terra },
+  emptyState: { paddingVertical: 60, alignItems: "center" },
+  emptyEmoji: { fontSize: 40, marginBottom: 10 },
+  emptyTitle: { fontFamily: fonts.bodySemiBold, color: colors.charcoal, fontSize: 15 },
+  emptySubtitle: { fontSize: 13, color: colors.charcoal, opacity: 0.5, marginTop: 4 },
 });
