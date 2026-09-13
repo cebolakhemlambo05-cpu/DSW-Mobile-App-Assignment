@@ -16,48 +16,107 @@ const CATEGORY_COLOR = {
     Coast: "#4a8a8b",
 };
 function AttractionCard({ attraction: a, budget, onPress, }) {
-  const cheapest = a.accommodations?.length
-    ? Math.min(...a.accommodations.map((ac) => ac.pricePerNight))
-    : null;
-  const withinBudget = cheapest === null || cheapest <= budget;
-    return (<react_native_1.Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && { opacity: 0.9 }]}>
+  const prices = (a.accommodations || [])
+    .map((ac) => ac.pricePerNight)
+    .filter((price) => typeof price === 'number');
+  const cheapest = prices.length > 0 ? Math.min(...prices) : null;
+  const withinBudget = cheapest !== null && cheapest <= budget;
+  return (
+    <react_native_1.Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.card, pressed && { opacity: 0.9 }]}
+    >
       <react_native_1.View style={styles.imageWrap}>
-        <react_native_1.Image source={{ uri: a.image }} style={styles.image}/>
-        <expo_linear_gradient_1.LinearGradient colors={["rgba(0,0,0,0.45)", "transparent"]} style={react_native_1.StyleSheet.absoluteFill}/>
+        <react_native_1.Image source={{ uri: a.image }} style={styles.image} />
+        <expo_linear_gradient_1.LinearGradient
+          colors={['rgba(0,0,0,0.45)', 'transparent']}
+          style={react_native_1.StyleSheet.absoluteFill}
+        />
         <react_native_1.View style={styles.topRow}>
-          <react_native_1.View style={[styles.categoryPill, { backgroundColor: CATEGORY_COLOR[a.category] || theme_1.colors.savanna }]}>
-            <react_native_1.Text style={styles.categoryText}>{a.category}</react_native_1.Text>
+          <react_native_1.View
+            style={[
+              styles.categoryPill,
+              {
+                backgroundColor:
+                  CATEGORY_COLOR[a.category] || theme_1.colors.savanna,
+              },
+            ]}
+          >
+            <react_native_1.Text style={styles.categoryText}>
+              {a.category}
+            </react_native_1.Text>
           </react_native_1.View>
-          {a.localFav && (<react_native_1.View style={styles.localFavPill}>
-              <Icons_1.IconGem size={11} color={theme_1.colors.ivory}/>
-              <react_native_1.Text style={styles.localFavText}>Local Fav</react_native_1.Text>
-            </react_native_1.View>)}
+          {a.localFav && (
+            <react_native_1.View style={styles.localFavPill}>
+              <Icons_1.IconGem size={11} color={theme_1.colors.ivory} />
+              <react_native_1.Text style={styles.localFavText}>
+                Local Fav
+              </react_native_1.Text>
+            </react_native_1.View>
+          )}
         </react_native_1.View>
         <react_native_1.View style={styles.bottomText}>
-          <react_native_1.Text style={styles.title}>{a.name}</react_native_1.Text>
+          <react_native_1.Text style={styles.title}>
+            {a.name}
+          </react_native_1.Text>
           <react_native_1.View style={styles.locationRow}>
-            <Icons_1.IconMapPin size={11} color="rgba(255,255,255,0.7)"/>
-            <react_native_1.Text style={styles.location}> {a.location}</react_native_1.Text>
+            <Icons_1.IconMapPin size={11} color="rgba(255,255,255,0.7)" />
+            <react_native_1.Text style={styles.location}>
+              {' '}
+              {a.location}
+            </react_native_1.Text>
           </react_native_1.View>
         </react_native_1.View>
       </react_native_1.View>
       <react_native_1.View style={styles.footer}>
         <react_native_1.View>
-          <react_native_1.Text style={styles.fromLabel}>Stays from</react_native_1.Text>
+          <react_native_1.Text style={styles.fromLabel}>
+            {cheapest === null ? 'Google price level' : 'Stays from'}
+          </react_native_1.Text>
           <react_native_1.Text style={styles.price}>
-            {cheapest === null ? "Activities only" : `R${cheapest.toLocaleString("en-ZA")}/night`}
+            {cheapest === null
+              ? 'Check property'
+              : `R${cheapest.toLocaleString('en-ZA')}`}
+            {cheapest !== null && (
+              <react_native_1.Text style={styles.perNight}>
+                /night
+              </react_native_1.Text>
+            )}
           </react_native_1.Text>
         </react_native_1.View>
-        <react_native_1.View style={[
+        <react_native_1.View
+          style={[
             styles.budgetPill,
-            { backgroundColor: withinBudget ? "rgba(122,158,159,0.1)" : "rgba(201,123,74,0.1)" },
-        ]}>
-          <react_native_1.Text style={[styles.budgetText, { color: withinBudget ? "#4a7a7b" : "#8a4a1a" }]}>
-            {withinBudget ? "Within budget" : "Stretches budget"}
+            {
+              backgroundColor: withinBudget
+                ? 'rgba(122,158,159,0.1)'
+                : 'rgba(201,123,74,0.1)',
+            },
+          ]}
+        >
+          <react_native_1.Text
+            style={[
+              styles.budgetText,
+              {
+                color:
+                  cheapest === null
+                    ? '#4a7a7b'
+                    : withinBudget
+                      ? '#4a7a7b'
+                      : '#8a4a1a',
+              },
+            ]}
+          >
+            {cheapest === null
+              ? 'Live rate unavailable'
+              : withinBudget
+                ? 'Within budget'
+                : 'Stretches budget'}
           </react_native_1.Text>
         </react_native_1.View>
       </react_native_1.View>
-    </react_native_1.Pressable>);
+    </react_native_1.Pressable>
+  );
 }
 const styles = react_native_1.StyleSheet.create({
     card: {

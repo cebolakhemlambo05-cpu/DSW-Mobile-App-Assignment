@@ -10,68 +10,188 @@ const theme_1 = require("../theme/theme");
 const Icons_1 = require("./Icons");
 const Badge_1 = __importDefault(require("./Badge"));
 function AccomCard({ accom: ac, selected, onView, onSelect, }) {
-    return (<react_native_1.View style={[
-            styles.card,
-            {
-                backgroundColor: selected ? theme_1.colors.savanna : theme_1.colors.ivory,
-                borderColor: selected ? theme_1.colors.savanna : "transparent",
-            },
-        ]}>
-      <react_native_1.Pressable onPress={onView} style={styles.mainArea}>
-        <react_native_1.View style={styles.topRow}>
-          <react_native_1.View style={{ flex: 1 }}>
-            <react_native_1.View style={styles.nameRow}>
-              <react_native_1.Text style={[styles.name, { color: selected ? theme_1.colors.ivory : theme_1.colors.charcoal }]}>{ac.name}</react_native_1.Text>
-              {ac.localFav && !selected && <Badge_1.default color="sky" icon={<Icons_1.IconGem />}>Local Fav</Badge_1.default>}
-              {ac.peakDouble && <Badge_1.default color="mustard" icon={<Icons_1.IconWarn />}>Peak ×2</Badge_1.default>}
+    return (
+      <react_native_1.View
+        style={[
+          styles.card,
+          {
+            backgroundColor: selected
+              ? theme_1.colors.savanna
+              : theme_1.colors.ivory,
+            borderColor: selected ? theme_1.colors.savanna : 'transparent',
+          },
+        ]}
+      >
+        <react_native_1.Pressable onPress={onView} style={styles.mainArea}>
+          <react_native_1.View style={styles.topRow}>
+            <react_native_1.View style={{ flex: 1 }}>
+              <react_native_1.View style={styles.nameRow}>
+                <react_native_1.Text
+                  style={[
+                    styles.name,
+                    {
+                      color: selected
+                        ? theme_1.colors.ivory
+                        : theme_1.colors.charcoal,
+                    },
+                  ]}
+                >
+                  {ac.name}
+                </react_native_1.Text>
+                {ac.localFav && !selected && (
+                  <Badge_1.default color="sky" icon={<Icons_1.IconGem />}>
+                    Local Fav
+                  </Badge_1.default>
+                )}
+                {ac.peakDouble && (
+                  <Badge_1.default color="mustard" icon={<Icons_1.IconWarn />}>
+                    Peak ×2
+                  </Badge_1.default>
+                )}
+              </react_native_1.View>
+              <react_native_1.View style={styles.metaRow}>
+                <react_native_1.Text
+                  style={[
+                    styles.metaText,
+                    {
+                      color: selected
+                        ? theme_1.colors.sand
+                        : theme_1.colors.charcoal,
+                      opacity: selected ? 0.8 : 0.6,
+                    },
+                  ]}
+                >
+                  {ac.type}
+                </react_native_1.Text>
+                <react_native_1.View style={styles.metaItem}>
+                  <Icons_1.IconMapPin
+                    size={11}
+                    color={
+                      selected ? theme_1.colors.sand : theme_1.colors.charcoal
+                    }
+                  />
+                  <react_native_1.Text
+                    style={[
+                      styles.metaText,
+                      {
+                        color: selected
+                          ? theme_1.colors.sand
+                          : theme_1.colors.charcoal,
+                        opacity: selected ? 0.8 : 0.6,
+                      },
+                    ]}
+                  >
+                    {' '}
+                    {ac.distanceKm}km to gate
+                  </react_native_1.Text>
+                </react_native_1.View>
+                <react_native_1.View style={styles.metaItem}>
+                  <Icons_1.IconStar size={11} />
+                  <react_native_1.Text
+                    style={[
+                      styles.metaText,
+                      {
+                        color: selected
+                          ? theme_1.colors.sand
+                          : theme_1.colors.charcoal,
+                        opacity: selected ? 0.8 : 0.6,
+                      },
+                    ]}
+                  >
+                    {' '}
+                    {ac.rating}
+                  </react_native_1.Text>
+                </react_native_1.View>
+              </react_native_1.View>
             </react_native_1.View>
-            <react_native_1.View style={styles.metaRow}>
-              <react_native_1.Text style={[styles.metaText, { color: selected ? theme_1.colors.sand : theme_1.colors.charcoal, opacity: selected ? 0.8 : 0.6 }]}>
-                {ac.type}
+            <react_native_1.View style={{ alignItems: 'flex-end' }}>
+              <react_native_1.Text
+                style={[
+                  styles.price,
+                  {
+                    color: selected
+                      ? theme_1.colors.sand
+                      : theme_1.colors.charcoal,
+                  },
+                ]}
+              >
+                {ac.pricePerNight == null
+                  ? 'Check price'
+                  : `R${ac.pricePerNight.toLocaleString('en-ZA')}`}
               </react_native_1.Text>
-              <react_native_1.View style={styles.metaItem}>
-                <Icons_1.IconMapPin size={11} color={selected ? theme_1.colors.sand : theme_1.colors.charcoal}/>
-                <react_native_1.Text style={[styles.metaText, { color: selected ? theme_1.colors.sand : theme_1.colors.charcoal, opacity: selected ? 0.8 : 0.6 }]}>
-                  {" "}{ac.distanceKm}km to gate
-                </react_native_1.Text>
-              </react_native_1.View>
-              <react_native_1.View style={styles.metaItem}>
-                <Icons_1.IconStar size={11}/>
-                <react_native_1.Text style={[styles.metaText, { color: selected ? theme_1.colors.sand : theme_1.colors.charcoal, opacity: selected ? 0.8 : 0.6 }]}>
-                  {" "}{ac.rating}
-                </react_native_1.Text>
-              </react_native_1.View>
+              <react_native_1.Text
+                style={[
+                  styles.perNight,
+                  {
+                    color: selected
+                      ? theme_1.colors.sand
+                      : theme_1.colors.charcoal,
+                  },
+                ]}
+              >
+                {ac.pricePerNight == null
+                  ? 'Google price level only'
+                  : '/night'}
+              </react_native_1.Text>
             </react_native_1.View>
           </react_native_1.View>
-          <react_native_1.View style={{ alignItems: "flex-end" }}>
-            <react_native_1.Text style={[styles.price, { color: selected ? theme_1.colors.sand : theme_1.colors.charcoal }]}>
-              R{ac.pricePerNight.toLocaleString("en-ZA")}
-            </react_native_1.Text>
-            <react_native_1.Text style={[styles.perNight, { color: selected ? theme_1.colors.sand : theme_1.colors.charcoal }]}>/night</react_native_1.Text>
-          </react_native_1.View>
-        </react_native_1.View>
-        <react_native_1.Text style={[styles.viewLink, { color: selected ? theme_1.colors.sand : theme_1.colors.sky }]}>
-          View details, amenities & reviews →
-        </react_native_1.Text>
-      </react_native_1.Pressable>
-
-      <react_native_1.View style={styles.selectRow}>
-        <react_native_1.Pressable onPress={onSelect} style={[
-            styles.selectBtn,
-            selected
-                ? { backgroundColor: "rgba(255,255,255,0.15)" }
-                : { backgroundColor: "rgba(58,90,64,0.09)", borderWidth: 1, borderColor: "rgba(58,90,64,0.19)" },
-        ]}>
-          {selected ? (<react_native_1.View style={styles.selectedRow}>
-              <Icons_1.IconCheck color={theme_1.colors.ivory}/>
-              <react_native_1.Text style={[styles.selectText, { color: theme_1.colors.ivory }]}> Selected</react_native_1.Text>
-            </react_native_1.View>) : (<react_native_1.Text style={[styles.selectText, { color: theme_1.colors.savanna }]}>Select for plan</react_native_1.Text>)}
+          <react_native_1.Text
+            style={[
+              styles.viewLink,
+              { color: selected ? theme_1.colors.sand : theme_1.colors.sky },
+            ]}
+          >
+            View details, amenities & reviews →
+          </react_native_1.Text>
         </react_native_1.Pressable>
-        <react_native_1.Text style={[styles.amenitiesPreview, { color: selected ? theme_1.colors.sand : theme_1.colors.charcoal, opacity: selected ? 1 : 0.45 }]} numberOfLines={1}>
-          {ac.details.amenities.slice(0, 2).join(" · ")}
-        </react_native_1.Text>
+
+        <react_native_1.View style={styles.selectRow}>
+          <react_native_1.Pressable
+            onPress={onSelect}
+            style={[
+              styles.selectBtn,
+              selected
+                ? { backgroundColor: 'rgba(255,255,255,0.15)' }
+                : {
+                    backgroundColor: 'rgba(58,90,64,0.09)',
+                    borderWidth: 1,
+                    borderColor: 'rgba(58,90,64,0.19)',
+                  },
+            ]}
+          >
+            {selected ? (
+              <react_native_1.View style={styles.selectedRow}>
+                <Icons_1.IconCheck color={theme_1.colors.ivory} />
+                <react_native_1.Text
+                  style={[styles.selectText, { color: theme_1.colors.ivory }]}
+                >
+                  {' '}
+                  Selected
+                </react_native_1.Text>
+              </react_native_1.View>
+            ) : (
+              <react_native_1.Text
+                style={[styles.selectText, { color: theme_1.colors.savanna }]}
+              >
+                Select for plan
+              </react_native_1.Text>
+            )}
+          </react_native_1.Pressable>
+          <react_native_1.Text
+            style={[
+              styles.amenitiesPreview,
+              {
+                color: selected ? theme_1.colors.sand : theme_1.colors.charcoal,
+                opacity: selected ? 1 : 0.45,
+              },
+            ]}
+            numberOfLines={1}
+          >
+            {ac.details.amenities.slice(0, 2).join(' · ')}
+          </react_native_1.Text>
+        </react_native_1.View>
       </react_native_1.View>
-    </react_native_1.View>);
+    );
 }
 const styles = react_native_1.StyleSheet.create({
     card: {
