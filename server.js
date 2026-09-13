@@ -117,16 +117,25 @@ async function sendPasswordResetEmail({ user, resetLink }) {
 }
 
 async function sendLoginOtpEmail({ user, otp }) {
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+  const timeString = expiresAt.toLocaleTimeString("en-ZA", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+
   await sendEmailJsTemplate({
     templateId: EMAILJS_OTP_TEMPLATE_ID,
     templateParams: {
+      email: user.email,
       to_email: user.email,
       user_email: user.email,
-      email: user.email,
       to_name: user.firstName,
       name: user.firstName,
+      passcode: otp,
       otp_code: otp,
       code: otp,
+      time: timeString,
       app_name: "ALL-IN-ONE-PLANNER",
     },
   });
