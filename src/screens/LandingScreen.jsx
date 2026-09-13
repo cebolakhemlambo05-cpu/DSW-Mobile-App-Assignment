@@ -10,14 +10,13 @@ const react_native_safe_area_context_1 = require("react-native-safe-area-context
 const expo_linear_gradient_1 = require("expo-linear-gradient");
 const theme_1 = require("../theme/theme");
 const Icons_1 = require("../components/Icons");
-const AppFooter_1 = require("../components/AppFooter");
 const FEATURES = [
-  "Budget slider filters out what you can't afford",
-  "Distance shown to attraction gate, not city centre",
-  "Hidden gems rated by South African locals",
-  "Group cost split in one tap",
+    { icon: "💰", text: "Budget slider filters out what you can't afford" },
+    { icon: "📍", text: "Distance shown to attraction gate, not city centre" },
+    { icon: "💎", text: "Hidden gems rated by South African locals" },
+    { icon: "👥", text: "Group cost split in one tap" },
 ];
-function LandingScreen({ onMode, onPrivacy }) {
+function LandingScreen({ onMode }) {
     return (<react_native_1.View style={styles.container}>
       <react_native_1.Image source={{ uri: "https://images.unsplash.com/photo-1760715752598-eac7633b472d?w=900&h=700&fit=crop&auto=format" }} style={react_native_1.StyleSheet.absoluteFill}/>
       <expo_linear_gradient_1.LinearGradient colors={["rgba(58,90,64,0.72)", "rgba(58,90,64,0.20)", "rgba(62,50,38,0.85)"]} locations={[0, 0.42, 1]} style={react_native_1.StyleSheet.absoluteFill}/>
@@ -39,9 +38,9 @@ function LandingScreen({ onMode, onPrivacy }) {
           </react_native_1.Text>
 
           <react_native_1.View style={styles.features}>
-            {FEATURES.map((text, index) => (<react_native_1.View key={text} style={styles.featurePill}>
-              <react_native_1.Text style={styles.featureIndex}>{String(index + 1).padStart(2, "0")}</react_native_1.Text>
-              <react_native_1.Text style={styles.featureText}>{text}</react_native_1.Text>
+            {FEATURES.map(({ icon, text }) => (<react_native_1.View key={text} style={styles.featurePill}>
+                <react_native_1.Text style={styles.featureIcon}>{icon}</react_native_1.Text>
+                <react_native_1.Text style={styles.featureText}>{text}</react_native_1.Text>
               </react_native_1.View>))}
           </react_native_1.View>
         </react_native_1.ScrollView>
@@ -53,7 +52,7 @@ function LandingScreen({ onMode, onPrivacy }) {
           <react_native_1.Pressable onPress={() => onMode("login")} style={styles.secondaryBtn}>
             <react_native_1.Text style={styles.secondaryBtnText}>Sign in</react_native_1.Text>
           </react_native_1.Pressable>
-          <AppFooter_1.default onPrivacy={onPrivacy} onAbout={() => onMode("about")} dark />
+          <react_native_1.Text style={styles.footerNote}>South Africa travel planning · Free forever</react_native_1.Text>
         </react_native_1.View>
       </react_native_safe_area_context_1.SafeAreaView>
     </react_native_1.View>);
@@ -61,13 +60,13 @@ function LandingScreen({ onMode, onPrivacy }) {
 const styles = react_native_1.StyleSheet.create({
     container: { flex: 1, backgroundColor: theme_1.colors.savanna },
     safe: { flex: 1, justifyContent: "space-between" },
-    scrollContent: { paddingHorizontal: 24, paddingTop: 12, flexGrow: 1, justifyContent: "center", alignItems: "center" },
+    scrollContent: { paddingHorizontal: 24, paddingTop: 12, flexGrow: 1, justifyContent: "center" },
     brandRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 20 },
     brandIcon: { width: 32, height: 32, borderRadius: 10, backgroundColor: theme_1.colors.terra, alignItems: "center", justifyContent: "center" },
     brandLabel: { fontSize: 11, fontFamily: theme_1.fonts.bodyBold, letterSpacing: 2, textTransform: "uppercase", color: theme_1.colors.sand },
-    headline: { fontSize: 34, fontFamily: theme_1.fonts.display, color: "#fff", lineHeight: 40, textAlign: "center" },
-    subhead: { marginTop: 16, fontSize: 14, color: "rgba(255,255,255,0.7)", lineHeight: 20, maxWidth: 360, textAlign: "center" },
-    features: { marginTop: 28, gap: 8, width: "100%", maxWidth: 420 },
+    headline: { fontSize: 34, fontFamily: theme_1.fonts.display, color: "#fff", lineHeight: 40 },
+    subhead: { marginTop: 16, fontSize: 14, color: "rgba(255,255,255,0.7)", lineHeight: 20, maxWidth: 300 },
+    features: { marginTop: 28, gap: 8 },
     featurePill: {
         flexDirection: "row",
         alignItems: "center",
@@ -77,14 +76,12 @@ const styles = react_native_1.StyleSheet.create({
         paddingVertical: 10,
         backgroundColor: "rgba(250,246,239,0.12)",
     },
-    featureIndex: { width: 24, fontSize: 11, fontFamily: theme_1.fonts.bodyBold, color: theme_1.colors.sand, textAlign: "center" },
+    featureIcon: { fontSize: 16 },
     featureText: { fontSize: 12, color: "rgba(255,255,255,0.85)", fontFamily: theme_1.fonts.bodyMedium, flex: 1 },
-    ctaWrap: { paddingHorizontal: 24, paddingBottom: 24, paddingTop: 16, gap: 12, alignItems: "center" },
-    primaryBtn: { width: "100%", maxWidth: 420, paddingVertical: 16, borderRadius: 18, backgroundColor: theme_1.colors.terra, alignItems: "center" },
+    ctaWrap: { paddingHorizontal: 24, paddingBottom: 24, paddingTop: 16, gap: 12 },
+    primaryBtn: { paddingVertical: 16, borderRadius: 18, backgroundColor: theme_1.colors.terra, alignItems: "center" },
     primaryBtnText: { color: theme_1.colors.ivory, fontSize: 14, fontFamily: theme_1.fonts.bodyBold },
     secondaryBtn: {
-        width: "100%",
-        maxWidth: 420,
         paddingVertical: 14,
         borderRadius: 18,
         alignItems: "center",

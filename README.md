@@ -11,25 +11,6 @@ npx expo start
 
 Then press `i` for iOS simulator, `a` for Android emulator, or scan the QR code with the **Expo Go** app on your phone.
 
-## Live accommodation options
-
-Accommodation searches run through `server.js` and use the Google Places key already required by the attractions search. Copy `.env.example` to `.env` in the project root and set:
-
-```env
-GOOGLE_PLACES_API_KEY=YOUR_GOOGLE_PLACES_API_KEY
-HOTEL_API_PROVIDER=google
-```
-
-Start the backend with `node server.js`, then start Expo. Opening an attraction calls `/api/hotels` using its coordinates. The backend finds nearby lodging through Google Places and returns multiple stays. The existing accommodation cards and detail sheet show the live name, estimated price, rating, address, amenities and contact details; the catalogue data remains as a fallback when no live result is available.
-
-Google Places results are discovery data, not booking confirmations. Prices and availability should be verified with the accommodation before accepting payment or confirming a reservation.
-
-## Account persistence and privacy
-
-The backend stores registered users in `data/app-data.json`. Passwords are stored as salted `scrypt` hashes, never as plain text. Registration, login, and password reset use `/api/auth/register`, `/api/auth/login`, and `/api/auth/reset-password`. The app includes a Privacy & data screen from the landing and home footers.
-
-This JSON store is intended for local development. Production deployments should use a managed database, secure sessions, rate limiting, email verification, encrypted backups, and a real password-reset flow.
-
 ## What changed vs. the web version
 
 | Web | React Native |

@@ -16,10 +16,8 @@ const CATEGORY_COLOR = {
     Coast: "#4a8a8b",
 };
 function AttractionCard({ attraction: a, budget, onPress, }) {
-  const cheapest = a.accommodations?.length
-    ? Math.min(...a.accommodations.map((ac) => ac.pricePerNight))
-    : null;
-  const withinBudget = cheapest === null || cheapest <= budget;
+    const cheapest = Math.min(...a.accommodations.map((ac) => ac.pricePerNight));
+    const withinBudget = cheapest <= budget;
     return (<react_native_1.Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && { opacity: 0.9 }]}>
       <react_native_1.View style={styles.imageWrap}>
         <react_native_1.Image source={{ uri: a.image }} style={styles.image}/>
@@ -45,7 +43,8 @@ function AttractionCard({ attraction: a, budget, onPress, }) {
         <react_native_1.View>
           <react_native_1.Text style={styles.fromLabel}>Stays from</react_native_1.Text>
           <react_native_1.Text style={styles.price}>
-            {cheapest === null ? "Activities only" : `R${cheapest.toLocaleString("en-ZA")}/night`}
+            R{cheapest.toLocaleString("en-ZA")}
+            <react_native_1.Text style={styles.perNight}>/night</react_native_1.Text>
           </react_native_1.Text>
         </react_native_1.View>
         <react_native_1.View style={[
