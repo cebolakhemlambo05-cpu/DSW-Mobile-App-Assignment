@@ -1,5 +1,10 @@
 import { Stack } from "expo-router";
+import { DayPlanProvider } from "../context/DayPlanContext";
 
 export default function RootLayout() {
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <DayPlanProvider>
+      <Stack screenOptions={{ headerShown: false }} />
+    </DayPlanProvider>
+  );
 }

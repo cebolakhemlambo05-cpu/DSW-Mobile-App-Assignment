@@ -24,18 +24,9 @@ export default function ScreenContainer({ children, backgroundColor }) {
 }
 
 const styles = StyleSheet.create({
-  page: {
-    flex: 1,
-    backgroundColor: colors.charcoal,
-  },
-  pageWide: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  frame: {
-    flex: 1,
-    width: "100%",
-  },
+  page: { flex: 1, backgroundColor: colors.charcoal },
+  pageWide: { alignItems: "center", justifyContent: "center" },
+  frame: { flex: 1, width: "100%" },
   frameWide: {
     flex: 0,
     width: MAX_CONTENT_WIDTH,

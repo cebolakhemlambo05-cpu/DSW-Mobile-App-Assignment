@@ -1,6 +1,17 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, KeyboardAvoidingView, Platform, ScrollView } from "react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+} from "react-native";
 import { router } from "expo-router";
+import ScreenContainer from "../components/ScreenContainer";
 import { colors } from "../constants/colors";
 
 export default function SignInScreen() {
@@ -27,18 +38,16 @@ export default function SignInScreen() {
     setLoading(true);
     setTimeout(() => {
       setLoading(false);
-      // Extract name from email (before @)
-      const userName = email.split('@')[0] || "Guest";
-      // Capitalize first letter
+      const userName = email.split("@")[0] || "Guest";
       const formattedName = userName.charAt(0).toUpperCase() + userName.slice(1);
       Alert.alert("Success!", "Signed in successfully!", [
-        { text: "Continue", onPress: () => router.push(`/home?name=${formattedName}`) },
+        { text: "Continue", onPress: () => router.replace(`/home?name=${formattedName}`) },
       ]);
     }, 800);
   };
 
   return (
-    <View style={styles.container}>
+    <ScreenContainer backgroundColor={colors.sand}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
@@ -79,6 +88,10 @@ export default function SignInScreen() {
             </View>
           </View>
 
+          <TouchableOpacity style={styles.forgotRow} onPress={() => router.push("/forgot-password")}>
+            <Text style={styles.forgotText}>Forgot password?</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity style={[styles.primaryButton, loading && { opacity: 0.6 }]} onPress={handleSignIn} disabled={loading} activeOpacity={0.85}>
             <Text style={styles.primaryButtonText}>{loading ? "Signing in…" : "Sign in"}</Text>
           </TouchableOpacity>
@@ -88,12 +101,11 @@ export default function SignInScreen() {
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
-    </View>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.sand },
   scroll: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 20, paddingBottom: 40 },
   backButton: { marginBottom: 24 },
   backButtonText: { color: colors.savanna, fontSize: 15, fontWeight: "600" },
@@ -105,6 +117,8 @@ const styles = StyleSheet.create({
   passwordRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   showButton: { paddingHorizontal: 8, paddingVertical: 10 },
   showButtonText: { color: colors.skyBlue, fontSize: 13, fontWeight: "700" },
+  forgotRow: { alignSelf: "flex-end", marginBottom: 8 },
+  forgotText: { color: colors.skyBlue, fontSize: 13, fontWeight: "700" },
   primaryButton: { marginTop: 12, backgroundColor: colors.clay, borderRadius: 28, paddingVertical: 16, alignItems: "center" },
   primaryButtonText: { color: colors.ivory, fontSize: 16, fontWeight: "700" },
   linkRow: { marginTop: 20, alignItems: "center" },

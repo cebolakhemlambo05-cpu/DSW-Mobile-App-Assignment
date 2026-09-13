@@ -9,12 +9,17 @@ import {
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import ScreenContainer from "../../components/ScreenContainer";
+import PrimaryButton from "../../components/PrimaryButton";
+import SecondaryButton from "../../components/SecondaryButton";
+import PriceTag from "../../components/PriceTag";
 import { colors } from "../../constants/colors";
 import { getAttractionById } from "../../data/attractions";
+import { useDayPlan } from "../../context/DayPlanContext";
 
 export default function AttractionDetailScreen() {
   const { id } = useLocalSearchParams();
   const attraction = getAttractionById(id);
+  const { selectedActivities, toggleActivity, chooseAttraction, attractionId } = useDayPlan();
 
   if (!attraction) {
     return (
@@ -29,9 +34,15 @@ export default function AttractionDetailScreen() {
     );
   }
 
-  const cheapestStay = [...attraction.accommodations].sort(
-    (a, b) => a.price - b.price
-  )[0];
+  const cheapestStay = [...attraction.accommodations].sort((a, b) => a.price - b.price)[0];
+  const isActive = (activityId) => selectedActivities.some((a) => a.id === activityId);
+
+  const handleToggleActivity = (act) => {
+    if (attractionId !== attraction.id) {
+      chooseAttraction(attraction.id, attraction.name);
+    }
+    toggleActivity(act);
+  };
 
   return (
     <ScreenContainer backgroundColor={colors.sand}>
@@ -53,38 +64,41 @@ export default function AttractionDetailScreen() {
               From R{cheapestStay.price} · {cheapestStay.distanceKm}km from gate
             </Text>
           </View>
-          <TouchableOpacity
-            style={styles.primaryButton}
-            activeOpacity={0.85}
+          <PrimaryButton
+            title="See all stays"
             onPress={() => router.push(`/accommodation?attractionId=${attraction.id}`)}
-          >
-            <Text style={styles.primaryButtonText}>See all stays</Text>
-          </TouchableOpacity>
+          />
 
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>What to do & what it costs</Text>
+            <Text style={styles.sectionNote}>Tap to add to your Day Plan</Text>
           </View>
-          {attraction.activities.map((act) => (
-            <View key={act.id} style={styles.activityRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.activityName}>{act.name}</Text>
-                {act.note ? (
-                  <Text style={styles.activityNote}>{act.note}</Text>
-                ) : null}
-              </View>
-              <Text style={styles.activityPrice}>
-                {act.price === 0 ? "Free" : `R${act.price}`}
-              </Text>
-            </View>
-          ))}
+          {attraction.activities.map((act) => {
+            const active = isActive(act.id);
+            return (
+              <TouchableOpacity
+                key={act.id}
+                style={[styles.activityRow, active && styles.activityRowActive]}
+                activeOpacity={0.8}
+                onPress={() => handleToggleActivity(act)}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.activityName}>{act.name}</Text>
+                  {act.note ? <Text style={styles.activityNote}>{act.note}</Text> : null}
+                </View>
+                <PriceTag amount={act.price} />
+                <View style={[styles.checkbox, active && styles.checkboxActive]}>
+                  {active ? <Text style={styles.checkmark}>✓</Text> : null}
+                </View>
+              </TouchableOpacity>
+            );
+          })}
 
-          <TouchableOpacity
-            style={styles.secondaryButton}
-            activeOpacity={0.85}
+          <SecondaryButton
+            title="Go to Day Plan"
             onPress={() => router.push("/day-plan")}
-          >
-            <Text style={styles.secondaryButtonText}>Go to Day Plan</Text>
-          </TouchableOpacity>
+            style={{ marginTop: 20 }}
+          />
         </View>
       </ScrollView>
     </ScreenContainer>
@@ -104,31 +118,29 @@ const styles = StyleSheet.create({
   sectionHeader: { marginTop: 24, marginBottom: 10 },
   sectionTitle: { color: colors.charcoal, fontSize: 17, fontWeight: "700" },
   sectionNote: { color: "rgba(62,50,38,0.6)", fontSize: 13, marginTop: 2 },
-  primaryButton: {
-    backgroundColor: colors.clay,
-    borderRadius: 24,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  primaryButtonText: { color: colors.ivory, fontSize: 15, fontWeight: "700" },
   activityRow: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 10,
     backgroundColor: colors.ivory,
     borderRadius: 14,
     padding: 14,
     marginBottom: 10,
+    borderWidth: 1.5,
+    borderColor: "transparent",
   },
+  activityRowActive: { borderColor: colors.clay, backgroundColor: "rgba(201,123,74,0.08)" },
   activityName: { color: colors.charcoal, fontSize: 15, fontWeight: "600" },
   activityNote: { color: "rgba(62,50,38,0.5)", fontSize: 12, marginTop: 2 },
-  activityPrice: { color: colors.charcoal, fontSize: 15, fontWeight: "800" },
-  secondaryButton: {
-    marginTop: 20,
-    borderRadius: 24,
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 8,
     borderWidth: 1.5,
-    borderColor: colors.savanna,
-    paddingVertical: 14,
+    borderColor: "rgba(62,50,38,0.2)",
     alignItems: "center",
+    justifyContent: "center",
   },
-  secondaryButtonText: { color: colors.savanna, fontSize: 15, fontWeight: "700" },
+  checkboxActive: { backgroundColor: colors.clay, borderColor: colors.clay },
+  checkmark: { color: colors.ivory, fontWeight: "800", fontSize: 14 },
 });

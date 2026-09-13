@@ -2,20 +2,23 @@ import React from "react";
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import ScreenContainer from "../components/ScreenContainer";
+import PriceTag from "../components/PriceTag";
 import { colors } from "../constants/colors";
 import { getAttractionById } from "../data/attractions";
+import { useDayPlan } from "../context/DayPlanContext";
 
 export default function AccommodationScreen() {
   const { attractionId } = useLocalSearchParams();
   const attraction = getAttractionById(attractionId);
+  const { selectedStay, chooseStay, chooseAttraction } = useDayPlan();
 
   if (!attraction) {
     return (
       <ScreenContainer backgroundColor={colors.sand}>
         <View style={styles.center}>
           <Text style={styles.notFound}>No attraction selected.</Text>
-          <TouchableOpacity onPress={() => router.push("/search")}>
-            <Text style={styles.backLink}>‹ Back to search</Text>
+          <TouchableOpacity onPress={() => router.push("/home")}>
+            <Text style={styles.backLink}>‹ Back to home</Text>
           </TouchableOpacity>
         </View>
       </ScreenContainer>
@@ -23,6 +26,12 @@ export default function AccommodationScreen() {
   }
 
   const sorted = [...attraction.accommodations].sort((a, b) => a.price - b.price);
+
+  const handleChoose = (stay) => {
+    chooseAttraction(attraction.id, attraction.name);
+    chooseStay(stay);
+    router.push("/day-plan");
+  };
 
   return (
     <ScreenContainer backgroundColor={colors.sand}>
@@ -35,17 +44,27 @@ export default function AccommodationScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.list}>
-        {sorted.map((stay) => (
-          <View key={stay.id} style={styles.card}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.cardName}>{stay.name}</Text>
-              <Text style={styles.cardDistance}>
-                📍 {stay.distanceKm}km from the gate
-              </Text>
+        {sorted.map((stay) => {
+          const active = selectedStay?.id === stay.id;
+          return (
+            <View key={stay.id} style={[styles.card, active && styles.cardActive]}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.cardName}>{stay.name}</Text>
+                <Text style={styles.cardDistance}>📍 {stay.distanceKm}km from the gate</Text>
+                <PriceTag amount={stay.price} unit="/night" />
+              </View>
+              <TouchableOpacity
+                style={[styles.chooseButton, active && styles.chooseButtonActive]}
+                onPress={() => handleChoose(stay)}
+                activeOpacity={0.85}
+              >
+                <Text style={[styles.chooseText, active && styles.chooseTextActive]}>
+                  {active ? "Selected ✓" : "Choose"}
+                </Text>
+              </TouchableOpacity>
             </View>
-            <Text style={styles.cardPrice}>R{stay.price}/night</Text>
-          </View>
-        ))}
+          );
+        })}
       </ScrollView>
     </ScreenContainer>
   );
@@ -65,8 +84,21 @@ const styles = StyleSheet.create({
     backgroundColor: colors.ivory,
     borderRadius: 16,
     padding: 16,
+    borderWidth: 1.5,
+    borderColor: "transparent",
+    gap: 12,
   },
+  cardActive: { borderColor: colors.clay, backgroundColor: "rgba(201,123,74,0.08)" },
   cardName: { color: colors.charcoal, fontSize: 16, fontWeight: "700" },
-  cardDistance: { color: colors.skyBlue, fontSize: 13, marginTop: 4 },
-  cardPrice: { color: colors.charcoal, fontSize: 16, fontWeight: "800" },
+  cardDistance: { color: colors.skyBlue, fontSize: 13, marginTop: 4, marginBottom: 6 },
+  chooseButton: {
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: colors.savanna,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  chooseButtonActive: { backgroundColor: colors.clay, borderColor: colors.clay },
+  chooseText: { color: colors.savanna, fontSize: 13, fontWeight: "700" },
+  chooseTextActive: { color: colors.ivory },
 });

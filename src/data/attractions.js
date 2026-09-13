@@ -4,8 +4,7 @@ export const attractions = [
     name: "Kruger National Park",
     category: "Wildlife",
     blurb: "South Africa's flagship safari park — Big Five country.",
-    image:
-      "https://images.unsplash.com/photo-1516426122078-c23e76319801?q=80&w=800&auto=format&fit=crop",
+    image: "https://images.unsplash.com/photo-1516426122078-c23e76319801?q=80&w=800&auto=format&fit=crop",
     activities: [
       { id: "a1", name: "Morning Safari Drive", price: 950 },
       { id: "a2", name: "Sunset Bush Walk", price: 650 },
@@ -22,8 +21,7 @@ export const attractions = [
     name: "Table Mountain",
     category: "Mountains",
     blurb: "Iconic flat-topped mountain overlooking Cape Town.",
-    image:
-      "https://images.unsplash.com/photo-1580060839134-75a50365ce4e?q=80&w=800&auto=format&fit=crop",
+    image: "https://images.unsplash.com/photo-1580060839134-75a50365ce4e?q=80&w=800&auto=format&fit=crop",
     activities: [
       { id: "a1", name: "Cableway Ticket (return)", price: 430 },
       { id: "a2", name: "Guided Hiking Trail", price: 380 },
@@ -40,8 +38,7 @@ export const attractions = [
     name: "Soweto",
     category: "City & Culture",
     blurb: "Historic township with rich culture, food, and nightlife.",
-    image:
-      "https://images.unsplash.com/photo-1577948000111-9c970dfe3743?q=80&w=800&auto=format&fit=crop",
+    image: "https://images.unsplash.com/photo-1577948000111-9c970dfe3743?q=80&w=800&auto=format&fit=crop",
     activities: [
       { id: "a1", name: "Bicycle Tour", price: 400 },
       { id: "a2", name: "Apartheid Museum Entry", price: 150 },

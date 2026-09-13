@@ -1,7 +1,22 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, KeyboardAvoidingView, Platform, ScrollView } from "react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+} from "react-native";
 import { router } from "expo-router";
+import ScreenContainer from "../components/ScreenContainer";
 import { colors } from "../constants/colors";
+
+function generateOtp() {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
 
 export default function CreateAccountScreen() {
   const [name, setName] = useState("");
@@ -33,16 +48,18 @@ export default function CreateAccountScreen() {
     setLoading(true);
     setTimeout(() => {
       setLoading(false);
-      // Use the name from the form
+      const otp = generateOtp();
       const userName = name.trim() || "Guest";
-      Alert.alert("Account created!", "Welcome aboard.", [
-        { text: "Continue", onPress: () => router.push(`/home?name=${userName}`) },
-      ]);
+      router.push(
+        `/verify-otp?email=${encodeURIComponent(email)}&code=${otp}&next=${encodeURIComponent(
+          `/home?name=${userName}`
+        )}`
+      );
     }, 800);
   };
 
   return (
-    <View style={styles.container}>
+    <ScreenContainer backgroundColor={colors.sand}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
@@ -86,12 +103,11 @@ export default function CreateAccountScreen() {
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
-    </View>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.sand },
   scroll: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 20, paddingBottom: 40 },
   backButton: { marginBottom: 24 },
   backButtonText: { color: colors.savanna, fontSize: 15, fontWeight: "600" },
