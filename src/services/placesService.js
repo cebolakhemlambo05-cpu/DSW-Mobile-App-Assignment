@@ -124,58 +124,145 @@ export async function fetchAccommodationOffers({
   }
 }
 
-async function postAuth(path, payload) {
+async function postAuth(path, payload, returnResponse = false) {
   let response;
   let data;
   try {
     response = await fetch(`${API_BASE}${path}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
     data = await response.json();
   } catch (error) {
-    throw new Error(`Could not reach the account server at ${API_BASE}. Start node server.js and try again.`);
+    throw new Error(
+      `Could not reach the account server at ${API_BASE}. Start node server.js and try again.`
+    );
   }
   if (!response.ok) {
-    const error = new Error(data?.errors?.form || data?.errors?.email || "Authentication request failed.");
-    error.errors = data?.errors && Object.keys(data.errors).length > 0
-      ? data.errors
-      : { form: error.message };
+    const error = new Error(
+      data?.errors?.form ||
+        data?.errors?.email ||
+        'Authentication request failed.'
+    );
+    error.errors =
+      data?.errors && Object.keys(data.errors).length > 0
+        ? data.errors
+        : { form: error.message };
     throw error;
   }
-  return data.user;
+  return returnResponse ? data : data.user;
 }
 
-export const registerUser = (payload) => postAuth("/auth/register", payload);
-export const resetUserPassword = (payload) => postAuth("/auth/reset-password", payload);
+export const registerUser = (payload) =>
+  postAuth('/auth/register', payload, true);
+export const resetUserPassword = (payload) =>
+  postAuth('/auth/reset-password', payload);
 
 export async function loginUser(payload) {
   let response;
   let data;
   try {
     response = await fetch(`${API_BASE}/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
     data = await response.json();
   } catch (error) {
-    throw new Error(`Could not reach the account server at ${API_BASE}. Start node server.js and try again.`);
+    throw new Error(
+      `Could not reach the account server at ${API_BASE}. Start node server.js and try again.`
+    );
   }
 
   if (!response.ok) {
-    const error = new Error(data?.errors?.form || data?.errors?.email || "Authentication request failed.");
-    error.errors = data?.errors && Object.keys(data.errors).length > 0
-      ? data.errors
-      : { form: error.message };
+    const error = new Error(
+      data?.errors?.form ||
+        data?.errors?.email ||
+        'Authentication request failed.'
+    );
+    error.errors =
+      data?.errors && Object.keys(data.errors).length > 0
+        ? data.errors
+        : { form: error.message };
     throw error;
   }
 
   return data;
 }
 
-export const verifyLoginOtp = (payload) => postAuth("/auth/login/verify-otp", payload);
+export const verifyLoginOtp = (payload) =>
+  postAuth('/auth/login/verify-otp', payload);
+export const verifyRegistrationOtp = (payload) =>
+  postAuth('/auth/register/verify-otp', payload);
+
+async function accountRequest(path, { method = 'GET', body, adminEmail } = {}) {
+  let response;
+  let data;
+  try {
+    response = await fetch(`${API_BASE}${path}`, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(adminEmail ? { 'x-admin-email': adminEmail } : {}),
+      },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    });
+    data = await response.json();
+  } catch (error) {
+    throw new Error(
+      `Could not reach the account server at ${API_BASE}. Start node server.js and try again.`
+    );
+  }
+  if (!response.ok) {
+    const error = new Error(
+      data?.errors?.form || data?.errors?.email || 'Account request failed.'
+    );
+    error.errors = data?.errors || { form: error.message };
+    throw error;
+  }
+  return data;
+}
+
+export const fetchUserProfile = (email) =>
+  accountRequest(`/users/${encodeURIComponent(email)}/profile`);
+export const updateUserProfile = (email, profile) =>
+  accountRequest(`/users/${encodeURIComponent(email)}/profile`, {
+    method: 'PATCH',
+    body: profile,
+  });
+export const deleteUserAccount = (email) =>
+  accountRequest(`/users/${encodeURIComponent(email)}`, { method: 'DELETE' });
+export const fetchUserPlan = (email) =>
+  accountRequest(`/users/${encodeURIComponent(email)}/plan`);
+export const saveUserPlan = (email, plan) =>
+  accountRequest(`/users/${encodeURIComponent(email)}/plan`, {
+    method: 'PUT',
+    body: { plan },
+  });
+export const addUserPlanEntry = (email, entry) =>
+  accountRequest(`/users/${encodeURIComponent(email)}/plan`, {
+    method: 'POST',
+    body: { entry },
+  });
+export const removeUserPlanEntry = (email, attractionId) =>
+  accountRequest(
+    `/users/${encodeURIComponent(email)}/plan/${encodeURIComponent(attractionId)}`,
+    { method: 'DELETE' }
+  );
+export const fetchAdminUsers = (adminEmail) =>
+  accountRequest('/admin/users', { adminEmail });
+export const updateAdminUser = (adminEmail, email, profile) =>
+  accountRequest(`/admin/users/${encodeURIComponent(email)}`, {
+    method: 'PATCH',
+    body: profile,
+    adminEmail,
+  });
+export const deleteAdminUser = (adminEmail, email) =>
+  accountRequest(`/admin/users/${encodeURIComponent(email)}`, {
+    method: 'DELETE',
+    adminEmail,
+  });
 
 export async function requestPasswordResetLink(payload) {
   let response;

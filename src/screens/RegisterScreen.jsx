@@ -17,6 +17,7 @@ import { colors, fonts } from "../theme/theme";
 import Field from "../components/Field";
 import { IconBack, IconCheck } from "../components/Icons";
 import { cleanEmail, cleanName } from "../utils/validation";
+import BrandLogo from "../components/BrandLogo";
 
 const NATIONALITY_OPTIONS = [
   "South Africa",
@@ -74,43 +75,57 @@ function SelectField({ label, value, onChangeText, options, placeholder, error }
   );
 }
 
-export default function RegisterScreen({ onSuccess, onCreateAccount, onLogin, onBack }) {
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [email, setEmail] = useState("");
-  const [nationality, setNationality] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
+export default function RegisterScreen({
+  onSuccess,
+  onCreateAccount,
+  onVerifyOtp,
+  onLogin,
+  onBack,
+}) {
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [email, setEmail] = useState('');
+  const [nationality, setNationality] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [showPw, setShowPw] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [step, setStep] = useState(1);
+  const [otp, setOtp] = useState('');
+  const [challengeToken, setChallengeToken] = useState('');
 
   const redirectExistingAccountToLogin = () => {
-    const message = "An account with this email already exists. Please try to log in.";
+    const message =
+      'An account with this email already exists. Please try to log in.';
     setErrors({ form: message });
 
-    if (Platform.OS === "web" && typeof window !== "undefined") {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
       window.alert(message);
       onLogin();
       return;
     }
 
-    Alert.alert("Account already exists", message, [{ text: "Go to login", onPress: onLogin }]);
+    Alert.alert('Account already exists', message, [
+      { text: 'Go to login', onPress: onLogin },
+    ]);
   };
 
   const isExistingAccountError = (nextErrors = {}) =>
-    typeof nextErrors.email === "string" && nextErrors.email.toLowerCase().includes("already exists");
+    typeof nextErrors.email === 'string' &&
+    nextErrors.email.toLowerCase().includes('already exists');
 
   const validateStep1 = () => {
     const nextErrors = {};
 
-    if (!firstName.trim()) nextErrors.firstName = "First name is required";
-    if (!lastName.trim()) nextErrors.lastName = "Last name is required";
-    if (!email.trim()) nextErrors.email = "Email is required";
-    else if (!/\S+@\S+\.\S+/.test(email)) nextErrors.email = "Enter a valid email address";
-    if (!nationality.trim()) nextErrors.nationality = "Please select your nationality";
+    if (!firstName.trim()) nextErrors.firstName = 'First name is required';
+    if (!lastName.trim()) nextErrors.lastName = 'Last name is required';
+    if (!email.trim()) nextErrors.email = 'Email is required';
+    else if (!/\S+@\S+\.\S+/.test(email))
+      nextErrors.email = 'Enter a valid email address';
+    if (!nationality.trim())
+      nextErrors.nationality = 'Please select your nationality';
 
     return nextErrors;
   };
@@ -119,15 +134,19 @@ export default function RegisterScreen({ onSuccess, onCreateAccount, onLogin, on
     const nextErrors = {};
 
     if (!password) {
-      nextErrors.password = "Password is required";
-    } else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/.test(password)) {
-      nextErrors.password = "Use 8+ characters with upper/lowercase, a number, and a symbol";
+      nextErrors.password = 'Password is required';
+    } else if (
+      !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/.test(password)
+    ) {
+      nextErrors.password =
+        'Use 8+ characters with upper/lowercase, a number, and a symbol';
     }
 
-    if (!confirm) nextErrors.confirm = "Please confirm your password";
-    else if (confirm !== password) nextErrors.confirm = "Passwords do not match";
+    if (!confirm) nextErrors.confirm = 'Please confirm your password';
+    else if (confirm !== password)
+      nextErrors.confirm = 'Passwords do not match';
 
-    if (!agreed) nextErrors.agreed = "Please accept the terms to continue";
+    if (!agreed) nextErrors.agreed = 'Please accept the terms to continue';
 
     return nextErrors;
   };
@@ -152,7 +171,13 @@ export default function RegisterScreen({ onSuccess, onCreateAccount, onLogin, on
 
     setLoading(true);
     try {
-      const result = await onCreateAccount({ firstName, lastName, email, nationality, password });
+      const result = await onCreateAccount({
+        firstName,
+        lastName,
+        email,
+        nationality,
+        password,
+      });
       setLoading(false);
 
       if (!result.ok) {
@@ -167,10 +192,21 @@ export default function RegisterScreen({ onSuccess, onCreateAccount, onLogin, on
         return;
       }
 
+      if (result.otpRequired) {
+        setChallengeToken(result.challengeToken);
+        setEmail(result.email || email);
+        setOtp('');
+        setErrors({});
+        setStep(3);
+        return;
+      }
+
       onSuccess(result.userName);
     } catch (error) {
       setLoading(false);
-      const resultErrors = error.errors || { form: "Unable to create your account right now." };
+      const resultErrors = error.errors || {
+        form: 'Unable to create your account right now.',
+      };
       if (isExistingAccountError(resultErrors)) {
         setErrors({});
         redirectExistingAccountToLogin();
@@ -181,26 +217,95 @@ export default function RegisterScreen({ onSuccess, onCreateAccount, onLogin, on
     }
   };
 
-  const strengthLabel = password.length === 0 ? "" : password.length < 8 ? "Too short" : password.length < 10 ? "Fair" : password.length < 12 ? "Good" : "Strong";
+  const verifyOtp = async () => {
+    const cleanOtp = otp.replace(/\D/g, '');
+    if (!/^\d{6}$/.test(cleanOtp)) {
+      setErrors({ otp: 'Enter the 6-digit code sent to your email.' });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const result = await onVerifyOtp({
+        email,
+        challengeToken,
+        otp: cleanOtp,
+      });
+      setLoading(false);
+
+      if (!result.ok) {
+        setErrors(result.errors || {});
+        return;
+      }
+
+      onSuccess(result.userName);
+    } catch (error) {
+      setLoading(false);
+      setErrors(
+        error.errors || {
+          form: 'Unable to verify your registration code right now.',
+        }
+      );
+    }
+  };
+
+  const strengthLabel =
+    password.length === 0
+      ? ''
+      : password.length < 8
+        ? 'Too short'
+        : password.length < 10
+          ? 'Fair'
+          : password.length < 12
+            ? 'Good'
+            : 'Strong';
 
   const strengthColor = (index) => {
-    if (password.length < [8, 10, 12][index]) return "rgba(62,50,38,0.12)";
+    if (password.length < [8, 10, 12][index]) return 'rgba(62,50,38,0.12)';
     return [colors.mustard, colors.sky, colors.savanna][index];
   };
 
   return (
-    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+    <KeyboardAvoidingView
+      style={styles.flex}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
       <View style={styles.container}>
-        <SafeAreaView edges={["top"]} style={styles.header}>
-          <Pressable onPress={step === 2 ? () => { setStep(1); setErrors({}); } : onBack} style={styles.backBtn}>
+        <SafeAreaView edges={['top']} style={styles.header}>
+          <Pressable
+            onPress={
+              step === 3
+                ? () => {
+                    setStep(2);
+                    setErrors({});
+                  }
+                : step === 2
+                ? () => {
+                    setStep(1);
+                    setErrors({});
+                  }
+                : onBack
+            }
+            style={styles.backBtn}
+          >
             <IconBack color={colors.sand} />
           </Pressable>
 
           <View style={styles.headerTextWrap}>
-            <Text style={styles.brand}>ALL-IN-ONE-PLANNER</Text>
-            <Text style={styles.title}>{step === 1 ? "Create account" : "Secure your account"}</Text>
+            <BrandLogo dark compact />
+            <Text style={styles.title}>
+              {step === 1
+                ? 'Create account'
+                : step === 2
+                  ? 'Secure your account'
+                  : 'Verify your email'}
+            </Text>
             <Text style={styles.subtitle}>
-              {step === 1 ? "Free forever — no credit card needed" : "Set a strong password to protect your plans"}
+              {step === 1
+                ? 'Free forever — no credit card needed'
+                : step === 2
+                  ? 'Set a strong password to protect your plans'
+                  : 'Enter the 6-digit code sent to your email'}
             </Text>
           </View>
 
@@ -213,17 +318,88 @@ export default function RegisterScreen({ onSuccess, onCreateAccount, onLogin, on
             </View>
             <View style={styles.stepLine} />
             <View style={styles.stepItem}>
-              <View style={[styles.stepDot, { backgroundColor: step === 2 ? colors.terra : "rgba(232,220,196,0.2)" }]}>
-                <Text style={[styles.stepDotText, { color: step === 2 ? colors.ivory : "rgba(232,220,196,0.5)" }]}>2</Text>
+              <View
+                style={[
+                  styles.stepDot,
+                  {
+                    backgroundColor:
+                      step === 2 ? colors.terra : 'rgba(232,220,196,0.2)',
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.stepDotText,
+                    {
+                      color:
+                        step === 2 ? colors.ivory : 'rgba(232,220,196,0.5)',
+                    },
+                  ]}
+                >
+                  2
+                </Text>
               </View>
-              <Text style={[styles.stepLabel, { color: step === 2 ? "rgba(232,220,196,0.9)" : "rgba(232,220,196,0.4)" }]}>Password</Text>
+              <Text
+                style={[
+                  styles.stepLabel,
+                  {
+                    color:
+                      step === 2
+                        ? 'rgba(232,220,196,0.9)'
+                        : 'rgba(232,220,196,0.4)',
+                  },
+                ]}
+              >
+                Password
+              </Text>
+            </View>
+            <View style={styles.stepLine} />
+            <View style={styles.stepItem}>
+              <View
+                style={[
+                  styles.stepDot,
+                  {
+                    backgroundColor:
+                      step === 3 ? colors.terra : 'rgba(232,220,196,0.2)',
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.stepDotText,
+                    {
+                      color:
+                        step === 3 ? colors.ivory : 'rgba(232,220,196,0.5)',
+                    },
+                  ]}
+                >
+                  3
+                </Text>
+              </View>
+              <Text
+                style={[
+                  styles.stepLabel,
+                  {
+                    color:
+                      step === 3
+                        ? 'rgba(232,220,196,0.9)'
+                        : 'rgba(232,220,196,0.4)',
+                  },
+                ]}
+              >
+                Verify
+              </Text>
             </View>
           </View>
         </SafeAreaView>
 
         <View style={styles.curve} />
 
-        <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          style={styles.body}
+          contentContainerStyle={styles.bodyContent}
+          keyboardShouldPersistTaps="handled"
+        >
           {step === 1 ? (
             <>
               <View style={styles.row2}>
@@ -289,12 +465,16 @@ export default function RegisterScreen({ onSuccess, onCreateAccount, onLogin, on
               </View>
 
               <Pressable onPress={onLogin} style={styles.outlineBtn}>
-                <Text style={styles.outlineBtnText}>Already have an account? Sign in</Text>
+                <Text style={styles.outlineBtnText}>
+                  Already have an account? Sign in
+                </Text>
               </Pressable>
             </>
-          ) : (
+          ) : step === 2 ? (
             <>
-              {!!errors.form && <Text style={styles.formError}>{errors.form}</Text>}
+              {!!errors.form && (
+                <Text style={styles.formError}>{errors.form}</Text>
+              )}
               <View style={{ gap: 6 }}>
                 <Text style={styles.pwLabel}>Password</Text>
                 <View style={styles.pwWrap}>
@@ -307,21 +487,41 @@ export default function RegisterScreen({ onSuccess, onCreateAccount, onLogin, on
                     placeholder="Min. 8 characters"
                     placeholderTextColor="rgba(62,50,38,0.35)"
                     secureTextEntry={!showPw}
-                    style={[styles.pwInput, { borderColor: errors.password ? colors.terra : "rgba(62,50,38,0.12)" }]}
+                    style={[
+                      styles.pwInput,
+                      {
+                        borderColor: errors.password
+                          ? colors.terra
+                          : 'rgba(62,50,38,0.12)',
+                      },
+                    ]}
                   />
-                  <Pressable onPress={() => setShowPw((prev) => !prev)} style={styles.showBtn}>
-                    <Text style={styles.showBtnText}>{showPw ? "Hide" : "Show"}</Text>
+                  <Pressable
+                    onPress={() => setShowPw((prev) => !prev)}
+                    style={styles.showBtn}
+                  >
+                    <Text style={styles.showBtnText}>
+                      {showPw ? 'Hide' : 'Show'}
+                    </Text>
                   </Pressable>
                 </View>
                 {password.length > 0 && (
                   <View style={styles.strengthRow}>
                     {[0, 1, 2].map((index) => (
-                      <View key={index} style={[styles.strengthBar, { backgroundColor: strengthColor(index) }]} />
+                      <View
+                        key={index}
+                        style={[
+                          styles.strengthBar,
+                          { backgroundColor: strengthColor(index) },
+                        ]}
+                      />
                     ))}
                     <Text style={styles.strengthLabel}>{strengthLabel}</Text>
                   </View>
                 )}
-                {!!errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
+                {!!errors.password && (
+                  <Text style={styles.errorText}>{errors.password}</Text>
+                )}
               </View>
 
               <Field
@@ -341,26 +541,88 @@ export default function RegisterScreen({ onSuccess, onCreateAccount, onLogin, on
                 style={[
                   styles.termsBox,
                   {
-                    backgroundColor: agreed ? "rgba(58,90,64,0.07)" : colors.ivory,
-                    borderColor: errors.agreed ? colors.terra : "rgba(62,50,38,0.1)",
+                    backgroundColor: agreed
+                      ? 'rgba(58,90,64,0.07)'
+                      : colors.ivory,
+                    borderColor: errors.agreed
+                      ? colors.terra
+                      : 'rgba(62,50,38,0.1)',
                   },
                 ]}
               >
-                <View style={[styles.checkbox, agreed ? { backgroundColor: colors.savanna, borderWidth: 0 } : { borderWidth: 1.5, borderColor: "rgba(62,50,38,0.3)" }]}>
+                <View
+                  style={[
+                    styles.checkbox,
+                    agreed
+                      ? { backgroundColor: colors.savanna, borderWidth: 0 }
+                      : { borderWidth: 1.5, borderColor: 'rgba(62,50,38,0.3)' },
+                  ]}
+                >
                   {agreed && <IconCheck color={colors.ivory} />}
                 </View>
                 <Text style={styles.termsText}>
-                  I agree to the <Text style={styles.termsLink}>Terms of Service</Text> and <Text style={styles.termsLink}>Privacy Policy</Text>. My data will never be sold.
+                  I agree to the{' '}
+                  <Text style={styles.termsLink}>Terms of Service</Text> and{' '}
+                  <Text style={styles.termsLink}>Privacy Policy</Text>. My data
+                  will never be sold.
                 </Text>
               </Pressable>
 
-              {!!errors.agreed && <Text style={styles.errorText}>{errors.agreed}</Text>}
+              {!!errors.agreed && (
+                <Text style={styles.errorText}>{errors.agreed}</Text>
+              )}
 
-              <Pressable onPress={submit} disabled={loading} style={[styles.submitBtn, loading && { opacity: 0.8 }]}>
-                {loading ? <ActivityIndicator color={colors.ivory} /> : <Text style={styles.submitText}>Create my account →</Text>}
+              <Pressable
+                onPress={submit}
+                disabled={loading}
+                style={[styles.submitBtn, loading && { opacity: 0.8 }]}
+              >
+                {loading ? (
+                  <ActivityIndicator color={colors.ivory} />
+                ) : (
+                  <Text style={styles.submitText}>Create my account →</Text>
+                )}
               </Pressable>
 
-              <Text style={styles.terms}>Your plans are private and only visible to you</Text>
+              <Text style={styles.terms}>
+                Your plans are private and only visible to you
+              </Text>
+            </>
+          ) : (
+            <>
+              {!!errors.form && (
+                <Text style={styles.formError}>{errors.form}</Text>
+              )}
+              <Text style={styles.otpMessage}>
+                We sent a one-time code to {email}.
+              </Text>
+              <Field
+                label="Security code"
+                value={otp}
+                onChangeText={(value) => {
+                  setOtp(value.replace(/\D/g, '').slice(0, 6));
+                  setErrors((prev) => ({ ...prev, otp: undefined }));
+                }}
+                placeholder="123456"
+                keyboardType="number-pad"
+                error={errors.otp}
+              />
+
+              <Pressable
+                onPress={verifyOtp}
+                disabled={loading}
+                style={[styles.submitBtn, loading && { opacity: 0.8 }]}
+              >
+                {loading ? (
+                  <ActivityIndicator color={colors.ivory} />
+                ) : (
+                  <Text style={styles.submitText}>Verify and create account</Text>
+                )}
+              </Pressable>
+
+              <Pressable onPress={submit} disabled={loading} style={styles.resendWrap}>
+                <Text style={styles.forgotText}>Resend code</Text>
+              </Pressable>
             </>
           )}
         </ScrollView>
@@ -406,6 +668,9 @@ const styles = StyleSheet.create({
   strengthLabel: { fontSize: 10, color: colors.charcoal, opacity: 0.5, marginLeft: 4 },
   errorText: { fontSize: 11, color: colors.terra },
   formError: { fontSize: 12, lineHeight: 17, color: colors.terra, textAlign: "center", backgroundColor: "rgba(201,123,74,0.1)", borderRadius: 10, padding: 10 },
+  otpMessage: { fontSize: 13, lineHeight: 19, color: colors.charcoal, opacity: 0.68, textAlign: "center" },
+  resendWrap: { alignItems: "center", paddingVertical: 8 },
+  forgotText: { fontSize: 12, fontFamily: fonts.bodySemiBold, color: colors.sky },
   termsBox: { flexDirection: "row", alignItems: "flex-start", gap: 10, borderRadius: 12, padding: 12, borderWidth: 1.5 },
   checkbox: { width: 20, height: 20, borderRadius: 6, alignItems: "center", justifyContent: "center", marginTop: 1 },
   termsText: { fontSize: 12, lineHeight: 17, color: colors.charcoal, opacity: 0.7, flex: 1 },

@@ -11,24 +11,20 @@ npx expo start
 
 Then press `i` for iOS simulator, `a` for Android emulator, or scan the QR code with the **Expo Go** app on your phone.
 
-## Live accommodation options
+## Google Places API
 
-Accommodation searches run through `server.js` and use the Google Places key already required by the attractions search. Copy `.env.example` to `.env` in the project root and set:
+The backend keeps the Google key off the device. Create `backend/.env` with:
 
 ```env
-GOOGLE_PLACES_API_KEY=YOUR_GOOGLE_PLACES_API_KEY
-HOTEL_API_PROVIDER=google
+GOOGLE_MAPS_API_KEY=your_key_here
+PORT=4000
 ```
 
-Start the backend with `node server.js`, then start Expo. Opening an attraction calls `/api/hotels` using its coordinates. The backend finds nearby lodging through Google Places and returns multiple stays. The existing accommodation cards and detail sheet show the live name, estimated price, rating, address, amenities and contact details; the catalogue data remains as a fallback when no live result is available.
+Enable Places API (New) for the key. Start the API with `npm run server` from the project root, then start Expo. Attraction search calls `GET /api/attractions?query=mountains`; the backend sends that search to Google Text Search, follows up to three result pages, deduplicates by place ID, and merges matching cached places. Partial terms and aliases such as mountains, hiking, peaks, wildlife, safari, coast, beach, and museum are supported.
 
-Google Places results are discovery data, not booking confirmations. Prices and availability should be verified with the accommodation before accepting payment or confirming a reservation.
+Discovery results are cached for `CACHE_TTL_MS` (six hours by default). Delete `backend/.cache/places.json` while the backend is stopped if you need to force a fresh country sweep during testing.
 
-## Account persistence and privacy
-
-The backend stores registered users in `data/app-data.json`. Passwords are stored as salted `scrypt` hashes, never as plain text. Registration, login, and password reset use `/api/auth/register`, `/api/auth/login`, and `/api/auth/reset-password`. The app includes a Privacy & data screen from the landing and home footers.
-
-This JSON store is intended for local development. Production deployments should use a managed database, secure sessions, rate limiting, email verification, encrypted backups, and a real password-reset flow.
+Google Places supplies attraction metadata and lodging price levels, not live nightly room rates or room types. The app labels those values as unavailable instead of treating a price level as a Rand amount. Add a hotel-content provider such as Amadeus or Booking.com later when real rates are required.
 
 ## What changed vs. the web version
 

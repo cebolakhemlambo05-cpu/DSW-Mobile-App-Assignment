@@ -11,52 +11,89 @@ const expo_linear_gradient_1 = require("expo-linear-gradient");
 const theme_1 = require("../theme/theme");
 const Icons_1 = require("../components/Icons");
 const AppFooter_1 = require("../components/AppFooter");
+const BrandLogo_1 = __importDefault(require('../components/BrandLogo'));
 const FEATURES = [
   "Budget slider filters out what you can't afford",
-  "Distance shown to attraction gate, not city centre",
-  "Hidden gems rated by South African locals",
-  "Group cost split in one tap",
+  'Distance shown to attraction gate, not city centre',
+  'Hidden gems rated by South African locals',
+  'Group cost split in one tap',
 ];
 function LandingScreen({ onMode, onPrivacy }) {
-    return (<react_native_1.View style={styles.container}>
-      <react_native_1.Image source={{ uri: "https://images.unsplash.com/photo-1760715752598-eac7633b472d?w=900&h=700&fit=crop&auto=format" }} style={react_native_1.StyleSheet.absoluteFill}/>
-      <expo_linear_gradient_1.LinearGradient colors={["rgba(58,90,64,0.72)", "rgba(58,90,64,0.20)", "rgba(62,50,38,0.85)"]} locations={[0, 0.42, 1]} style={react_native_1.StyleSheet.absoluteFill}/>
+  return (
+    <react_native_1.View style={styles.container}>
+      <react_native_1.Image
+        source={{
+          uri: 'https://images.unsplash.com/photo-1760715752598-eac7633b472d?w=900&h=700&fit=crop&auto=format',
+        }}
+        style={react_native_1.StyleSheet.absoluteFill}
+      />
+      <expo_linear_gradient_1.LinearGradient
+        colors={[
+          'rgba(58,90,64,0.72)',
+          'rgba(58,90,64,0.20)',
+          'rgba(62,50,38,0.85)',
+        ]}
+        locations={[0, 0.42, 1]}
+        style={react_native_1.StyleSheet.absoluteFill}
+      />
       <react_native_safe_area_context_1.SafeAreaView style={styles.safe}>
-        <react_native_1.ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <react_native_1.View style={styles.brandRow}>
-            <react_native_1.View style={styles.brandIcon}>
-              <Icons_1.IconHome />
-            </react_native_1.View>
-            <react_native_1.Text style={styles.brandLabel}>ALL-IN-ONE-PLANNER</react_native_1.Text>
-          </react_native_1.View>
+        <react_native_1.ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <BrandLogo_1.default dark rounded />
 
           <react_native_1.Text style={styles.headline}>
-            Plan South Africa.{"\n"}
-            <react_native_1.Text style={{ color: theme_1.colors.sand }}>Prices first,{"\n"}surprises never.</react_native_1.Text>
+            Plan South Africa.{'\n'}
+            <react_native_1.Text style={{ color: theme_1.colors.sand }}>
+              Prices first,{'\n'}surprises never.
+            </react_native_1.Text>
           </react_native_1.Text>
           <react_native_1.Text style={styles.subhead}>
-            Budget-first travel planning — attractions, stays, and activities, all in one place. See every rand before you book.
+            Budget-first travel planning — attractions, stays, and activities,
+            all in one place. See every rand before you book.
           </react_native_1.Text>
 
           <react_native_1.View style={styles.features}>
-            {FEATURES.map((text, index) => (<react_native_1.View key={text} style={styles.featurePill}>
-              <react_native_1.Text style={styles.featureIndex}>{String(index + 1).padStart(2, "0")}</react_native_1.Text>
-              <react_native_1.Text style={styles.featureText}>{text}</react_native_1.Text>
-              </react_native_1.View>))}
+            {FEATURES.map((text, index) => (
+              <react_native_1.View key={text} style={styles.featurePill}>
+                <react_native_1.Text style={styles.featureIndex}>
+                  {String(index + 1).padStart(2, '0')}
+                </react_native_1.Text>
+                <react_native_1.Text style={styles.featureText}>
+                  {text}
+                </react_native_1.Text>
+              </react_native_1.View>
+            ))}
           </react_native_1.View>
         </react_native_1.ScrollView>
 
         <react_native_1.View style={styles.ctaWrap}>
-          <react_native_1.Pressable onPress={() => onMode("register")} style={styles.primaryBtn}>
-            <react_native_1.Text style={styles.primaryBtnText}>Create a free account</react_native_1.Text>
+          <react_native_1.Pressable
+            onPress={() => onMode('register')}
+            style={styles.primaryBtn}
+          >
+            <react_native_1.Text style={styles.primaryBtnText}>
+              Create a free account
+            </react_native_1.Text>
           </react_native_1.Pressable>
-          <react_native_1.Pressable onPress={() => onMode("login")} style={styles.secondaryBtn}>
-            <react_native_1.Text style={styles.secondaryBtnText}>Sign in</react_native_1.Text>
+          <react_native_1.Pressable
+            onPress={() => onMode('login')}
+            style={styles.secondaryBtn}
+          >
+            <react_native_1.Text style={styles.secondaryBtnText}>
+              Sign in
+            </react_native_1.Text>
           </react_native_1.Pressable>
-          <AppFooter_1.default onPrivacy={onPrivacy} onAbout={() => onMode("about")} dark />
+          <AppFooter_1.default
+            onPrivacy={onPrivacy}
+            onAbout={() => onMode('about')}
+            dark
+          />
         </react_native_1.View>
       </react_native_safe_area_context_1.SafeAreaView>
-    </react_native_1.View>);
+    </react_native_1.View>
+  );
 }
 const styles = react_native_1.StyleSheet.create({
     container: { flex: 1, backgroundColor: theme_1.colors.savanna },

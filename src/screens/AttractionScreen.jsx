@@ -48,41 +48,32 @@ const BudgetSlider_1 = __importDefault(require("../components/BudgetSlider"));
 const AccomCard_1 = __importDefault(require("../components/AccomCard"));
 const ActivityCard_1 = __importDefault(require("../components/ActivityCard"));
 const AccomDetailModal_1 = __importDefault(require("../components/AccomDetailModal"));
-const placesService_1 = require("../services/placesService");
+const api_1 = require("../config/api");
 function AttractionScreen({ attraction, onBack, onAddToPlan, existingEntry, }) {
     var _a, _b, _c;
     const [budget, setBudget] = (0, react_1.useState)(2500);
-  const [liveAccommodations, setLiveAccommodations] = (0, react_1.useState)(null);
-  const [liveLoading, setLiveLoading] = (0, react_1.useState)(false);
-  (0, react_1.useEffect)(() => {
-    const latitude = attraction.map?.latitude;
-    const longitude = attraction.map?.longitude;
-    if (!Number.isFinite(latitude) || !Number.isFinite(longitude))
-      return undefined;
-    const controller = new AbortController();
-    setLiveLoading(true);
-    (0, placesService_1.fetchAccommodationOffers)({ latitude, longitude, signal: controller.signal })
-      .then((offers) => {
-      if (offers.length > 0)
-        setLiveAccommodations(offers);
-    })
-      .catch((error) => {
-      if (error?.name !== "AbortError")
-        console.warn("Live accommodation lookup failed:", error?.message || error);
-    })
-      .finally(() => setLiveLoading(false));
-    return () => controller.abort();
-  }, [attraction.id]);
-  const accommodationList = liveAccommodations || (Array.isArray(attraction.accommodations) ? attraction.accommodations : []);
-    const activityList = Array.isArray(attraction.activities) ? attraction.activities : [];
-    const [tab, setTab] = (0, react_1.useState)(accommodationList.length > 0 ? "stays" : "activities");
+    const [tab, setTab] = (0, react_1.useState)("stays");
     const [selectedAccom, setSelectedAccom] = (0, react_1.useState)((_a = existingEntry === null || existingEntry === void 0 ? void 0 : existingEntry.accommodation) === null || _a === void 0 ? void 0 : _a.id);
     const [selectedActivities, setSelectedActivities] = (0, react_1.useState)(new Set((_b = existingEntry === null || existingEntry === void 0 ? void 0 : existingEntry.activities.map((a) => a.id)) !== null && _b !== void 0 ? _b : []));
     const [showOffline, setShowOffline] = (0, react_1.useState)(false);
     const [viewingAccom, setViewingAccom] = (0, react_1.useState)(null);
-    const sortedAccoms = (0, react_1.useMemo)(() => [...accommodationList].sort((a, b) => a.pricePerNight - b.pricePerNight), [accommodationList]);
-    const filteredAccoms = (0, react_1.useMemo)(() => sortedAccoms.filter((a) => a.pricePerNight <= budget), [sortedAccoms, budget]);
-    const hiddenAccoms = (0, react_1.useMemo)(() => sortedAccoms.filter((a) => a.pricePerNight > budget), [sortedAccoms, budget]);
+    const [accommodations, setAccommodations] = (0, react_1.useState)(attraction.accommodations || []);
+    const [lodgingLoading, setLodgingLoading] = (0, react_1.useState)(false);
+    (0, react_1.useEffect)(() => {
+      let active = true;
+      if (attraction.accommodations?.length) return undefined;
+      setLodgingLoading(true);
+      (0, api_1.fetchJson)(`/api/attractions/${encodeURIComponent(attraction.id)}/lodging`)
+        .then(({ data }) => { if (active) setAccommodations(data || []); })
+        .catch(() => { if (active) setAccommodations([]); })
+        .finally(() => { if (active) setLodgingLoading(false); });
+      return () => { active = false; };
+    }, [attraction]);
+    const sortedAccoms = (0, react_1.useMemo)(() => [...accommodations].sort((a, b) => (a.pricePerNight ?? Infinity) - (b.pricePerNight ?? Infinity)), [accommodations]);
+    const pricedAccoms = (0, react_1.useMemo)(() => sortedAccoms.filter((a) => a.pricePerNight != null), [sortedAccoms]);
+    const filteredAccoms = (0, react_1.useMemo)(() => pricedAccoms.filter((a) => a.pricePerNight <= budget), [pricedAccoms, budget]);
+    const unknownPriceAccoms = (0, react_1.useMemo)(() => sortedAccoms.filter((a) => a.pricePerNight == null), [sortedAccoms]);
+    const hiddenAccoms = (0, react_1.useMemo)(() => pricedAccoms.filter((a) => a.pricePerNight > budget), [pricedAccoms, budget]);
     const toggleActivity = (id) => {
         setSelectedActivities((prev) => {
             const next = new Set(prev);
@@ -90,8 +81,8 @@ function AttractionScreen({ attraction, onBack, onAddToPlan, existingEntry, }) {
             return next;
         });
     };
-    const selectedAccomData = accommodationList.find((a) => a.id === selectedAccom);
-    const selectedActivityData = activityList.filter((a) => selectedActivities.has(a.id));
+    const selectedAccomData = accommodations.find((a) => a.id === selectedAccom);
+    const selectedActivityData = attraction.activities.filter((a) => selectedActivities.has(a.id));
     const totalActivityCost = selectedActivityData.reduce((s, a) => s + a.pricePerPerson, 0);
     const totalCost = ((_c = selectedAccomData === null || selectedAccomData === void 0 ? void 0 : selectedAccomData.pricePerNight) !== null && _c !== void 0 ? _c : 0) + totalActivityCost;
     const addToPlan = () => {
@@ -128,25 +119,6 @@ function AttractionScreen({ attraction, onBack, onAddToPlan, existingEntry, }) {
 
         <react_native_1.View style={styles.content}>
           <react_native_1.Text style={styles.description}>{attraction.description}</react_native_1.Text>
-          <react_native_1.View style={styles.locationCard}>
-            <Icons_1.IconMapPin color={theme_1.colors.sky}/>
-            <react_native_1.View style={{ flex: 1, marginLeft: 10 }}>
-              <react_native_1.Text style={styles.locationLabel}>Map & location</react_native_1.Text>
-              <react_native_1.Text style={styles.locationValue}>{attraction.location}</react_native_1.Text>
-              <react_native_1.Text style={styles.locationHint}>{attraction.map?.mapQuery || attraction.location}</react_native_1.Text>
-              {!!attraction.map?.latitude && <react_native_1.Text style={styles.locationHint}>Coordinates: {attraction.map.latitude}, {attraction.map.longitude}</react_native_1.Text>}
-            </react_native_1.View>
-          </react_native_1.View>
-
-          {!!attraction.booking && <react_native_1.View style={styles.bookingCard}>
-            <Icons_1.IconCalendar color={theme_1.colors.savanna}/>
-            <react_native_1.View style={{ flex: 1, marginLeft: 10 }}>
-              <react_native_1.Text style={styles.locationLabel}>Booking availability</react_native_1.Text>
-              <react_native_1.Text style={styles.locationValue}>{attraction.booking.availabilityStatus || "Check availability"}</react_native_1.Text>
-              <react_native_1.Text style={styles.locationHint}>Provider: {attraction.booking.bookingProvider || "Local operator"}</react_native_1.Text>
-              {!!attraction.booking.availabilityCheckedAt && <react_native_1.Text style={styles.locationHint}>Last checked: {attraction.booking.availabilityCheckedAt}</react_native_1.Text>}
-            </react_native_1.View>
-          </react_native_1.View>}
 
           <BudgetSlider_1.default value={budget} onChange={setBudget} label="Filter by budget"/>
 
@@ -159,19 +131,21 @@ function AttractionScreen({ attraction, onBack, onAddToPlan, existingEntry, }) {
           </react_native_1.View>
 
           {tab === "stays" && (<react_native_1.View style={{ gap: 8 }}>
-                <react_native_1.Text style={styles.hintText}>
-                {liveLoading ? "Checking live accommodation availability..." : "Sorted cheapest → most expensive · Tap to view details & select · Distance to " + attraction.name.split(" ")[0] + " gate"}
+              <react_native_1.Text style={styles.hintText}>
+                Sorted cheapest → most expensive · Tap to view details & select · Distance to {attraction.name.split(" ")[0]} gate
               </react_native_1.Text>
-                {filteredAccoms.length === 0 && (<react_native_1.View style={{ paddingVertical: 30, alignItems: "center" }}>
-                  <react_native_1.Text style={styles.emptyHint}>{sortedAccoms.length === 0 ? "No nearby accommodation details are available for this attraction yet." : `No stays within R${budget.toLocaleString("en-ZA")} — try raising your budget`}</react_native_1.Text>
+              {lodgingLoading && (<react_native_1.View style={{ paddingVertical: 30, alignItems: "center" }}><react_native_1.Text style={styles.emptyHint}>Loading nearby stays...</react_native_1.Text></react_native_1.View>)}
+              {!lodgingLoading && filteredAccoms.length === 0 && unknownPriceAccoms.length === 0 && (<react_native_1.View style={{ paddingVertical: 30, alignItems: "center" }}>
+                  <react_native_1.Text style={styles.emptyHint}>No stays within R{budget.toLocaleString("en-ZA")} — try raising your budget</react_native_1.Text>
                 </react_native_1.View>)}
               {filteredAccoms.map((ac) => (<AccomCard_1.default key={ac.id} accom={ac} selected={selectedAccom === ac.id} onView={() => setViewingAccom(ac)} onSelect={() => setSelectedAccom(selectedAccom === ac.id ? undefined : ac.id)}/>))}
+              {unknownPriceAccoms.length > 0 && (<react_native_1.View style={{ gap: 8 }}><react_native_1.Text style={styles.hintText}>Google provides price levels, not live nightly rates. Check each property for current pricing.</react_native_1.Text>{unknownPriceAccoms.map((ac) => (<AccomCard_1.default key={ac.id} accom={ac} selected={selectedAccom === ac.id} onView={() => setViewingAccom(ac)} onSelect={() => setSelectedAccom(selectedAccom === ac.id ? undefined : ac.id)}/>))}</react_native_1.View>)}
               {hiddenAccoms.length > 0 && (<react_native_1.Text style={styles.hiddenHint}>{hiddenAccoms.length} stay(s) hidden (over budget)</react_native_1.Text>)}
             </react_native_1.View>)}
 
           {tab === "activities" && (<react_native_1.View style={{ gap: 8 }}>
               <react_native_1.Text style={styles.hintText}>Tap to add to your day plan · Prices per person</react_native_1.Text>
-              {activityList.length === 0 ? (<react_native_1.Text style={styles.emptyHint}>No activities have been added for this attraction yet.</react_native_1.Text>) : activityList.map((act) => (<ActivityCard_1.default key={act.id} activity={act} selected={selectedActivities.has(act.id)} onToggle={() => toggleActivity(act.id)}/>))}
+              {attraction.activities.map((act) => (<ActivityCard_1.default key={act.id} activity={act} selected={selectedActivities.has(act.id)} onToggle={() => toggleActivity(act.id)}/>))}
             </react_native_1.View>)}
 
           <react_native_1.View style={{ height: 90 }}/>
@@ -211,11 +185,6 @@ const styles = react_native_1.StyleSheet.create({
     heroLocation: { fontSize: 12, color: "rgba(255,255,255,0.7)", marginTop: 3 },
     content: { paddingHorizontal: 16, paddingTop: 16, gap: 16 },
     description: { fontSize: 14, lineHeight: 20, color: theme_1.colors.charcoal, opacity: 0.75 },
-    locationCard: { flexDirection: "row", alignItems: "flex-start", backgroundColor: theme_1.colors.ivory, borderRadius: 14, borderWidth: 1, borderColor: "rgba(62,50,38,0.1)", padding: 14 },
-    locationLabel: { fontSize: 10, fontFamily: theme_1.fonts.bodyBold, letterSpacing: 0.7, textTransform: "uppercase", color: theme_1.colors.savanna },
-    locationValue: { fontSize: 14, fontFamily: theme_1.fonts.bodySemiBold, color: theme_1.colors.charcoal, marginTop: 3 },
-    locationHint: { fontSize: 11, color: theme_1.colors.charcoal, opacity: 0.55, marginTop: 3 },
-    bookingCard: { flexDirection: "row", alignItems: "flex-start", backgroundColor: "rgba(58,90,64,0.08)", borderRadius: 14, padding: 14 },
     tabRow: { flexDirection: "row", borderRadius: 14, overflow: "hidden", backgroundColor: theme_1.colors.ivory, borderWidth: 1, borderColor: "rgba(62,50,38,0.1)" },
     tabBtn: { flex: 1, paddingVertical: 11, alignItems: "center" },
     tabText: { fontSize: 13, fontFamily: theme_1.fonts.bodySemiBold },
