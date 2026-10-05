@@ -6,6 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+<<<<<<< Updated upstream
     "ios": {
       "supportsTablet": true
     },
@@ -23,6 +24,22 @@
     "plugins": [
       "expo-router",
       "expo-status-bar"
+=======
+    "assetBundlePatterns": ["**/*"],
+    "ios": { "supportsTablet": true },
+    "android": {
+      "adaptiveIcon": { "backgroundColor": "#E8DCC4" }
+    },
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "image": "./data/images/logo.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#E8DCC4"
+        }
+      ]
+>>>>>>> Stashed changes
     ]
   }
 }
