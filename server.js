@@ -21,8 +21,8 @@ const EMAILJS_TEMPLATE_ID = process.env.EMAILJS_TEMPLATE_ID || '';
 const EMAILJS_OTP_TEMPLATE_ID = process.env.EMAILJS_OTP_TEMPLATE_ID || '';
 const EMAILJS_PUBLIC_KEY = process.env.EMAILJS_PUBLIC_KEY || '';
 const EMAILJS_PRIVATE_KEY = process.env.EMAILJS_PRIVATE_KEY || '';
-const ADMIN_EMAIL = 'allinoneplanner@gmail.com';
-const ADMIN_PASSWORD = 'allinoneplanner@123';
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || '';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
 const AMADEUS_API_BASE_URL =
   process.env.AMADEUS_API_BASE_URL || 'https://test.api.amadeus.com';
 const AMADEUS_AUTH_URL =
@@ -789,6 +789,20 @@ function setCached(key, value) {
   cache.set(key, { value, time: Date.now() });
 }
 
+// Maps an Open-Meteo numeric weather code to a short human-readable description.
+function describeWeatherCode(code) {
+  const map = {
+    0: 'Clear sky', 1: 'Mainly clear', 2: 'Partly cloudy', 3: 'Overcast',
+    45: 'Fog', 48: 'Depositing rime fog',
+    51: 'Light drizzle', 53: 'Moderate drizzle', 55: 'Dense drizzle',
+    61: 'Slight rain', 63: 'Moderate rain', 65: 'Heavy rain',
+    71: 'Slight snow', 73: 'Moderate snow', 75: 'Heavy snow',
+    80: 'Rain showers', 81: 'Moderate rain showers', 82: 'Violent rain showers',
+    95: 'Thunderstorm', 96: 'Thunderstorm with hail', 99: 'Thunderstorm with heavy hail',
+  };
+  return map[code] || 'Unknown';
+}
+
 app.get('/api/health', (_req, res) => {
   res.json({
     ok: true,
@@ -860,6 +874,78 @@ app.get('/api/hotels', async (req, res) => {
     return res
       .status(500)
       .json({ error: error.message || 'Hotel provider request failed' });
+  }
+});
+
+// Returns a current-conditions snapshot plus a daily forecast (default 5 days,
+// capped at 14) for the given coordinates. Used to show weather on each
+// attraction's detail screen. Backed by Open-Meteo (no API key required).
+app.get('/api/weather', async (req, res) => {
+  try {
+    const lat = Number(req.query.lat);
+    const lng = Number(req.query.lng);
+    const days = Math.min(Math.max(Number(req.query.days) || 5, 1), 14);
+
+    if (
+      !Number.isFinite(lat) ||
+      !Number.isFinite(lng) ||
+      lat < -90 ||
+      lat > 90 ||
+      lng < -180 ||
+      lng > 180
+    ) {
+      return res.status(400).json({ error: 'lat and lng are required' });
+    }
+
+    // Round coords so nearby requests share a cache entry instead of missing
+    // on tiny float differences.
+    const cacheKey = `weather:${lat.toFixed(2)},${lng.toFixed(2)},${days}`;
+    const cached = getCached(cacheKey);
+    if (cached) return res.json({ weather: cached, cached: true });
+
+    const url = new URL('https://api.open-meteo.com/v1/forecast');
+    url.searchParams.set('latitude', String(lat));
+    url.searchParams.set('longitude', String(lng));
+    url.searchParams.set(
+      'daily',
+      'weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max,windspeed_10m_max'
+    );
+    url.searchParams.set('current_weather', 'true');
+    url.searchParams.set('timezone', 'auto');
+    url.searchParams.set('forecast_days', String(days));
+
+    const response = await fetch(url);
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.reason || 'Weather provider request failed');
+    }
+
+    const weather = {
+      current: data.current_weather
+        ? {
+            temperature: data.current_weather.temperature,
+            windSpeed: data.current_weather.windspeed,
+            condition: describeWeatherCode(data.current_weather.weathercode),
+          }
+        : null,
+      daily: (data.daily?.time || []).map((date, i) => ({
+        date,
+        maxTemp: data.daily.temperature_2m_max[i],
+        minTemp: data.daily.temperature_2m_min[i],
+        precipitationChance:
+          data.daily.precipitation_probability_max?.[i] ?? null,
+        windSpeed: data.daily.windspeed_10m_max[i],
+        condition: describeWeatherCode(data.daily.weathercode[i]),
+      })),
+    };
+
+    setCached(cacheKey, weather);
+    return res.json({ weather });
+  } catch (error) {
+    console.error('/api/weather failed:', error);
+    return res
+      .status(500)
+      .json({ error: error.message || 'Failed to fetch weather' });
   }
 });
 
@@ -1092,7 +1178,7 @@ app.post("/api/auth/login", async (req, res) => {
   const cleanEmail = String(req.body?.email || "").trim().toLowerCase();
   const password = String(req.body?.password || "");
 
-  if (cleanEmail === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+  if (ADMIN_EMAIL && ADMIN_PASSWORD && cleanEmail === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
     return res.json({
       adminRequired: true,
       user: {
