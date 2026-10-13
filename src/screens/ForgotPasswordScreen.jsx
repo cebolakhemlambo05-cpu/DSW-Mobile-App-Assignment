@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   View,
   Text,
@@ -24,6 +24,8 @@ export default function ForgotPasswordScreen({ initialEmail = "", resetToken = "
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [showPw, setShowPw] = useState(false);
+  const passwordRef = useRef(null);
+  const confirmRef = useRef(null);
   const isResetLink = Boolean(resetToken);
 
   const validateEmailRequest = () => {
@@ -149,6 +151,11 @@ export default function ForgotPasswordScreen({ initialEmail = "", resetToken = "
               {!!errors.form && <Text style={styles.formError}>{errors.form}</Text>}
               <Field
                 label="Email address"
+                returnKeyType={isResetLink ? "next" : "go"}
+                blurOnSubmit={!isResetLink}
+                onSubmitEditing={() => isResetLink
+                  ? passwordRef.current?.focus()
+                  : handleRequestLink()}
                 value={email}
                 onChangeText={(value) => {
                   setEmail(cleanEmail(value));
@@ -166,6 +173,7 @@ export default function ForgotPasswordScreen({ initialEmail = "", resetToken = "
                     <Text style={styles.pwLabel}>New password</Text>
                     <View style={styles.pwWrap}>
                       <TextInput
+                        ref={passwordRef}
                         value={password}
                         onChangeText={(value) => {
                           setPassword(value.slice(0, 128));
@@ -174,6 +182,8 @@ export default function ForgotPasswordScreen({ initialEmail = "", resetToken = "
                         placeholder="Min. 8 characters"
                         placeholderTextColor="rgba(62,50,38,0.35)"
                         secureTextEntry={!showPw}
+                        returnKeyType="next"
+                        onSubmitEditing={() => confirmRef.current?.focus()}
                         style={[styles.pwInput, { borderColor: errors.password ? colors.terra : "rgba(62,50,38,0.12)" }]}
                       />
                       <Pressable onPress={() => setShowPw((prev) => !prev)} style={styles.showBtn}>
@@ -193,6 +203,10 @@ export default function ForgotPasswordScreen({ initialEmail = "", resetToken = "
 
                   <Field
                     label="Confirm new password"
+                    inputRef={confirmRef}
+                    returnKeyType="go"
+                    blurOnSubmit
+                    onSubmitEditing={handleResetPassword}
                     value={confirm}
                     onChangeText={(value) => {
                       setConfirm(value.slice(0, 128));

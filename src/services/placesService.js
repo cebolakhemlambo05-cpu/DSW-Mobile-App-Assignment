@@ -42,6 +42,22 @@ console.log("[placesService] API_BASE =", API_BASE);
 
 const REQUEST_TIMEOUT_MS = 20000;
 
+async function readApiJson(response, endpointName) {
+  const body = await response.text();
+  let data;
+  try {
+    data = JSON.parse(body);
+  } catch {
+    if (response.status === 404 || /^\s*<!doctype html|^\s*<html/i.test(body)) {
+      throw new Error(
+        `The backend at ${API_BASE} does not have the ${endpointName} endpoint yet. Stop the old server and restart it from the app folder with "node server.js".`
+      );
+    }
+    throw new Error(`${endpointName} service returned a non-JSON response (HTTP ${response.status}).`);
+  }
+  return data;
+}
+
 export async function fetchSouthAfricaAttractions({
   query = "",
   category = "All",
@@ -96,6 +112,8 @@ export async function fetchSouthAfricaAttractions({
 export async function fetchAccommodationOffers({
   latitude,
   longitude,
+  attractionName,
+  attractionLocation,
   checkInDate,
   checkOutDate,
   adults = 2,
@@ -103,8 +121,10 @@ export async function fetchAccommodationOffers({
   signal,
 } = {}) {
   const url = new URL(`${API_BASE}/hotels`);
-  url.searchParams.set("lat", String(latitude));
-  url.searchParams.set("lng", String(longitude));
+  if (Number.isFinite(latitude)) url.searchParams.set("lat", String(latitude));
+  if (Number.isFinite(longitude)) url.searchParams.set("lng", String(longitude));
+  if (attractionName) url.searchParams.set("attractionName", attractionName);
+  if (attractionLocation) url.searchParams.set("attractionLocation", attractionLocation);
   if (checkInDate) url.searchParams.set("checkInDate", checkInDate);
   if (checkOutDate) url.searchParams.set("checkOutDate", checkOutDate);
   url.searchParams.set("adults", String(adults));
@@ -116,11 +136,134 @@ export async function fetchAccommodationOffers({
 
   try {
     const response = await fetch(url.toString(), { signal: timeoutController.signal });
-    const data = await response.json();
+    const data = await readApiJson(response, "Hotel offers");
     if (!response.ok) throw new Error(data?.error || `Hotel backend error (HTTP ${response.status}).`);
     return Array.isArray(data.hotels) ? data.hotels : [];
   } finally {
     clearTimeout(timeoutId);
+  }
+}
+
+export async function fetchNearbyPlaces({
+  latitude,
+  longitude,
+  category,
+  signal,
+} = {}) {
+  const url = new URL(`${API_BASE}/nearby-places`);
+  if (Number.isFinite(latitude)) url.searchParams.set("lat", String(latitude));
+  if (Number.isFinite(longitude)) url.searchParams.set("lng", String(longitude));
+  url.searchParams.set("category", String(category || "all"));
+
+  const timeoutController = new AbortController();
+  const timeoutId = setTimeout(() => timeoutController.abort(), 45000);
+  const abortRequest = () => timeoutController.abort();
+  if (signal) signal.addEventListener("abort", abortRequest, { once: true });
+
+  try {
+    const response = await fetch(url.toString(), { signal: timeoutController.signal });
+    const data = await readApiJson(response, "Nearby places");
+    if (!response.ok) {
+      throw new Error(data?.error || `Nearby places request failed (HTTP ${response.status}).`);
+    }
+    if (!Array.isArray(data.places)) {
+      throw new Error("Nearby places service returned an invalid response.");
+    }
+    return data.places;
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      if (signal?.aborted) throw error;
+      throw new Error("Nearby places request timed out. Please try again.");
+    }
+    if (error instanceof TypeError) {
+      throw new Error(`Could not reach the nearby places service at ${API_BASE}. (${error.message})`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+    if (signal) signal.removeEventListener("abort", abortRequest);
+  }
+}
+
+export async function fetchDrivingDistances({
+  places,
+  attraction,
+  userLocation,
+  signal,
+} = {}) {
+  const timeoutController = new AbortController();
+  const timeoutId = setTimeout(() => timeoutController.abort(), REQUEST_TIMEOUT_MS);
+  const abortRequest = () => timeoutController.abort();
+  if (signal) signal.addEventListener("abort", abortRequest, { once: true });
+
+  try {
+    const response = await fetch(`${API_BASE}/route-distances`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ places, attraction, userLocation }),
+      signal: timeoutController.signal,
+    });
+    const data = await readApiJson(response, "Routes API driving distance");
+    if (!response.ok) {
+      throw new Error(data?.error || `Driving distance request failed (HTTP ${response.status}).`);
+    }
+    if (!data.routesToAttraction || !data.routesFromUser) {
+      throw new Error("Routes service returned invalid driving distances.");
+    }
+    return data;
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      if (signal?.aborted) throw error;
+      throw new Error("Driving distance request timed out. Please try again.");
+    }
+    if (error instanceof TypeError) {
+      throw new Error(`Could not reach the Routes service at ${API_BASE}. (${error.message})`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+    if (signal) signal.removeEventListener("abort", abortRequest);
+  }
+}
+
+export async function fetchWeatherForecast({
+  latitude,
+  longitude,
+  days = 7,
+  signal,
+} = {}) {
+  const url = new URL(`${API_BASE}/weather`);
+  url.searchParams.set("lat", String(latitude));
+  url.searchParams.set("lng", String(longitude));
+  url.searchParams.set("days", String(days));
+
+  const timeoutController = new AbortController();
+  const timeoutId = setTimeout(() => timeoutController.abort(), REQUEST_TIMEOUT_MS);
+  const abortRequest = () => timeoutController.abort();
+  if (signal) signal.addEventListener("abort", abortRequest, { once: true });
+
+  try {
+    const response = await fetch(url.toString(), { signal: timeoutController.signal });
+    const data = await readApiJson(response, "Weather");
+    if (!response.ok) {
+      throw new Error(data?.error || `Weather request failed (HTTP ${response.status}).`);
+    }
+    if (!Array.isArray(data.days)) {
+      throw new Error("Weather service returned an invalid forecast.");
+    }
+    return data;
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      if (signal?.aborted) throw error;
+      throw new Error("Weather request timed out. Please try again.");
+    }
+    if (error instanceof TypeError) {
+      throw new Error(`Could not reach the weather service at ${API_BASE}. (${error.message})`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+    if (signal) signal.removeEventListener("abort", abortRequest);
   }
 }
 
@@ -135,9 +278,11 @@ async function postAuth(path, payload, returnResponse = false) {
     });
     data = await response.json();
   } catch (error) {
-    throw new Error(
+    const networkError = new Error(
       `Could not reach the account server at ${API_BASE}. Start node server.js and try again.`
     );
+    networkError.code = 'NETWORK_UNAVAILABLE';
+    throw networkError;
   }
   if (!response.ok) {
     const error = new Error(
@@ -170,9 +315,11 @@ export async function loginUser(payload) {
     });
     data = await response.json();
   } catch (error) {
-    throw new Error(
+    const networkError = new Error(
       `Could not reach the account server at ${API_BASE}. Start node server.js and try again.`
     );
+    networkError.code = 'NETWORK_UNAVAILABLE';
+    throw networkError;
   }
 
   if (!response.ok) {
@@ -219,6 +366,7 @@ async function accountRequest(path, { method = 'GET', body, adminEmail } = {}) {
       data?.errors?.form || data?.errors?.email || 'Account request failed.'
     );
     error.errors = data?.errors || { form: error.message };
+    error.status = response.status;
     throw error;
   }
   return data;
@@ -252,6 +400,10 @@ export const removeUserPlanEntry = (email, attractionId) =>
   );
 export const fetchAdminUsers = (adminEmail) =>
   accountRequest('/admin/users', { adminEmail });
+export const fetchAdminAuditEvents = (adminEmail) =>
+  accountRequest('/admin/audit-events', { adminEmail });
+export const fetchAdminHealth = (adminEmail) =>
+  accountRequest('/admin/health', { adminEmail });
 export const updateAdminUser = (adminEmail, email, profile) =>
   accountRequest(`/admin/users/${encodeURIComponent(email)}`, {
     method: 'PATCH',

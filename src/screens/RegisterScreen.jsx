@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -18,32 +18,25 @@ import Field from "../components/Field";
 import { IconBack, IconCheck } from "../components/Icons";
 import { cleanEmail, cleanName } from "../utils/validation";
 import BrandLogo from "../components/BrandLogo";
-
-const NATIONALITY_OPTIONS = [
-  "South Africa",
-  "United Kingdom",
-  "United States",
-  "Kenya",
-  "Botswana",
-  "Namibia",
-  "Nigeria",
-  "Zimbabwe",
-  "Germany",
-  "Canada",
-  "Australia",
-  "India",
-  "United Arab Emirates",
-  "France",
-  "Other",
-];
+import { COUNTRIES } from "../data/countries";
 
 function SelectField({ label, value, onChangeText, options, placeholder, error }) {
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const filteredOptions = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return query
+      ? options.filter((option) => option.toLowerCase().includes(query))
+      : options;
+  }, [options, search]);
 
   return (
     <View style={styles.selectWrap}>
       <Text style={styles.selectLabel}>{label}</Text>
       <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        accessibilityLabel={`${label}: ${value || placeholder}`}
         onPress={() => setOpen((prev) => !prev)}
         style={[styles.selectBox, { borderColor: error ? colors.terra : open ? colors.savanna : "rgba(62,50,38,0.12)" }]}
       >
@@ -55,11 +48,32 @@ function SelectField({ label, value, onChangeText, options, placeholder, error }
 
       {open && (
         <View style={styles.dropdownList}>
-          {options.map((option) => (
+          <TextInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Search countries"
+            placeholderTextColor="rgba(62,50,38,0.4)"
+            returnKeyType="done"
+            onSubmitEditing={() => {
+              const exactMatch = filteredOptions.find(
+                (option) => option.toLowerCase() === search.trim().toLowerCase()
+              );
+              if (exactMatch || filteredOptions.length === 1) {
+                onChangeText(exactMatch || filteredOptions[0]);
+                setSearch("");
+                setOpen(false);
+              }
+            }}
+            style={styles.countrySearch}
+          />
+          <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+          {filteredOptions.map((option) => (
             <Pressable
               key={option}
+              accessibilityRole="button"
               onPress={() => {
                 onChangeText(option);
+                setSearch("");
                 setOpen(false);
               }}
               style={[styles.dropdownItem, value === option && { backgroundColor: "rgba(58,90,64,0.08)" }]}
@@ -67,6 +81,10 @@ function SelectField({ label, value, onChangeText, options, placeholder, error }
               <Text style={styles.dropdownText}>{option}</Text>
             </Pressable>
           ))}
+          {filteredOptions.length === 0 && (
+            <Text style={styles.noCountries}>No matching countries</Text>
+          )}
+          </ScrollView>
         </View>
       )}
 
@@ -95,6 +113,10 @@ export default function RegisterScreen({
   const [step, setStep] = useState(1);
   const [otp, setOtp] = useState('');
   const [challengeToken, setChallengeToken] = useState('');
+  const lastNameRef = useRef(null);
+  const emailRef = useRef(null);
+  const confirmRef = useRef(null);
+  const otpRef = useRef(null);
 
   const redirectExistingAccountToLogin = () => {
     const message =
@@ -406,6 +428,8 @@ export default function RegisterScreen({
                 <View style={{ flex: 1 }}>
                   <Field
                     label="First name"
+                    returnKeyType="next"
+                    onSubmitEditing={() => lastNameRef.current?.focus()}
                     value={firstName}
                     onChangeText={(value) => {
                       setFirstName(cleanName(value));
@@ -418,6 +442,9 @@ export default function RegisterScreen({
                 <View style={{ flex: 1 }}>
                   <Field
                     label="Last name"
+                    inputRef={lastNameRef}
+                    returnKeyType="next"
+                    onSubmitEditing={() => emailRef.current?.focus()}
                     value={lastName}
                     onChangeText={(value) => {
                       setLastName(cleanName(value));
@@ -431,6 +458,10 @@ export default function RegisterScreen({
 
               <Field
                 label="Email address"
+                inputRef={emailRef}
+                returnKeyType="go"
+                blurOnSubmit
+                onSubmitEditing={nextStep}
                 value={email}
                 onChangeText={(value) => {
                   setEmail(cleanEmail(value));
@@ -449,7 +480,7 @@ export default function RegisterScreen({
                   setNationality(value);
                   setErrors((prev) => ({ ...prev, nationality: undefined }));
                 }}
-                options={NATIONALITY_OPTIONS}
+                options={COUNTRIES}
                 placeholder="Select your nationality"
                 error={errors.nationality}
               />
@@ -479,6 +510,8 @@ export default function RegisterScreen({
                 <Text style={styles.pwLabel}>Password</Text>
                 <View style={styles.pwWrap}>
                   <TextInput
+                    returnKeyType="next"
+                    onSubmitEditing={() => confirmRef.current?.focus()}
                     value={password}
                     onChangeText={(value) => {
                       setPassword(value.slice(0, 128));
@@ -526,6 +559,10 @@ export default function RegisterScreen({
 
               <Field
                 label="Confirm password"
+                inputRef={confirmRef}
+                returnKeyType="go"
+                blurOnSubmit
+                onSubmitEditing={submit}
                 value={confirm}
                 onChangeText={(value) => {
                   setConfirm(value.slice(0, 128));
@@ -598,6 +635,10 @@ export default function RegisterScreen({
               </Text>
               <Field
                 label="Security code"
+                inputRef={otpRef}
+                returnKeyType="go"
+                blurOnSubmit
+                onSubmitEditing={verifyOtp}
                 value={otp}
                 onChangeText={(value) => {
                   setOtp(value.replace(/\D/g, '').slice(0, 6));
@@ -656,6 +697,8 @@ const styles = StyleSheet.create({
   selectText: { fontSize: 14, fontFamily: fonts.body },
   dropdownCaret: { fontSize: 16, color: colors.charcoal, opacity: 0.7 },
   dropdownList: { backgroundColor: colors.ivory, borderRadius: 12, borderWidth: 1, borderColor: "rgba(62,50,38,0.12)", marginTop: 4, maxHeight: 220 },
+  countrySearch: { paddingHorizontal: 14, paddingVertical: 10, backgroundColor: colors.ivory, color: colors.charcoal, borderBottomWidth: 1, borderBottomColor: "rgba(62,50,38,0.12)" },
+  noCountries: { color: colors.charcoal, opacity: 0.6, fontSize: 12, padding: 14 },
   dropdownItem: { paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: "rgba(62,50,38,0.08)" },
   dropdownText: { fontSize: 14, fontFamily: fonts.body, color: colors.charcoal },
   pwLabel: { fontSize: 11, fontFamily: fonts.bodySemiBold, letterSpacing: 0.5, textTransform: "uppercase", color: colors.charcoal, opacity: 0.6 },

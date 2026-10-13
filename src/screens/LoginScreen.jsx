@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   View,
   Text,
@@ -18,9 +18,6 @@ import { IconBack } from "../components/Icons";
 import { cleanEmail } from "../utils/validation";
 import BrandLogo from "../components/BrandLogo";
 
-const ADMIN_EMAIL = 'allinoneplanner@gmail.com';
-const ADMIN_PASSWORD = 'allinoneplanner@123';
-
 export default function LoginScreen({
   onSuccess,
   onLogin,
@@ -37,8 +34,8 @@ export default function LoginScreen({
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [showPw, setShowPw] = useState(false);
-  const isAdminCredentials =
-    email.trim().toLowerCase() === ADMIN_EMAIL && password === ADMIN_PASSWORD;
+  const passwordRef = useRef(null);
+  const isAdminEmail = email.trim().toLowerCase() === 'admin@allinoneplaner.com';
 
   const validate = () => {
     const nextErrors = {};
@@ -70,6 +67,16 @@ export default function LoginScreen({
 
       if (!result.ok) {
         setErrors(result.errors || {});
+        return;
+      }
+
+      if (result.adminRequired) {
+        onSuccess(result.userName);
+        return;
+      }
+
+      if (result.offlineUser) {
+        onSuccess(result.offlineUser);
         return;
       }
 
@@ -168,6 +175,8 @@ export default function LoginScreen({
             <>
               <Field
                 label="Email address"
+                returnKeyType="next"
+                onSubmitEditing={() => passwordRef.current?.focus()}
                 value={email}
                 onChangeText={(value) => {
                   setEmail(cleanEmail(value));
@@ -183,6 +192,7 @@ export default function LoginScreen({
                 <Text style={styles.pwLabel}>Password</Text>
                 <View style={styles.pwWrap}>
                   <TextInput
+                    ref={passwordRef}
                     value={password}
                     onChangeText={(value) => {
                       setPassword(value.slice(0, 128));
@@ -192,6 +202,8 @@ export default function LoginScreen({
                     placeholderTextColor="rgba(62,50,38,0.35)"
                     secureTextEntry={!showPw}
                     onSubmitEditing={submit}
+                    returnKeyType="go"
+                    blurOnSubmit
                     style={[
                       styles.pwInput,
                       {
@@ -228,7 +240,7 @@ export default function LoginScreen({
                   <ActivityIndicator color={colors.ivory} />
                 ) : (
                   <Text style={styles.submitText}>
-                    {isAdminCredentials
+                    {isAdminEmail
                       ? 'Sign in as admin'
                       : 'Send security code'}
                   </Text>
@@ -252,6 +264,9 @@ export default function LoginScreen({
               </Text>
               <Field
                 label="Security code"
+                returnKeyType="go"
+                blurOnSubmit
+                onSubmitEditing={verifyOtp}
                 value={otp}
                 onChangeText={(value) => {
                   setOtp(value.replace(/\D/g, '').slice(0, 6));

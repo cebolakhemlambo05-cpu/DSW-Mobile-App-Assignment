@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { ActivityIndicator, View, StyleSheet } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { ActivityIndicator, AppState, View, StyleSheet } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import {
@@ -34,7 +34,22 @@ import {
   saveUserPlan,
   updateUserProfile,
   deleteUserAccount,
+  fetchUserProfile,
+  fetchUserPlan,
 } from './src/services/placesService';
+import {
+  clearActiveSession,
+  clearPendingChanges,
+  removeCachedAccount,
+  restoreActiveSession,
+  restoreCachedAccount,
+  restorePendingChanges,
+  saveActiveSession,
+  saveCachedAccount,
+  saveOfflineVerifier,
+  savePendingChanges,
+  verifyOfflinePassword,
+} from './src/services/offlineStore';
 import PrivacyScreen from './src/screens/PrivacyScreen';
 import AboutScreen from './src/screens/AboutScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
@@ -59,8 +74,113 @@ export default function App() {
   const [screen, setScreen] = useState('home');
   const [selectedAttraction, setSelectedAttraction] = useState(null);
   const [dayPlan, setDayPlan] = useState([]);
+  const [restoringSession, setRestoringSession] = useState(true);
+  const [syncNotice, setSyncNotice] = useState('');
+  const pendingCredentials = useRef(null);
 
-  if (!frauncesLoaded || !outfitLoaded) {
+  useEffect(() => {
+    let active = true;
+
+    const restore = async () => {
+      try {
+        const session = await restoreActiveSession();
+        if (!session?.email) return;
+
+        const cached = await restoreCachedAccount(session.email);
+        const user = cached ? { ...session, ...cached } : session;
+        const plan = Array.isArray(user.dayPlan) ? user.dayPlan : [];
+
+        if (active) {
+          setCurrentUser(user);
+          setDayPlan(plan);
+          if (user.isAdmin) setScreen('admin');
+          setSyncNotice('Your saved account is available on this device.');
+        }
+
+      } catch (error) {
+        console.error('Could not restore the saved session:', error);
+      } finally {
+        if (active) setRestoringSession(false);
+      }
+    };
+
+    restore();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!currentUser?.email || currentUser.isAdmin) return undefined;
+    let active = true;
+    let syncing = false;
+
+    const syncAccount = async () => {
+      if (syncing) return;
+      syncing = true;
+      try {
+        const pending = await restorePendingChanges(currentUser.email);
+        let user = currentUser;
+        if (pending?.profile) {
+          const result = await updateUserProfile(currentUser.email, pending.profile);
+          user = {
+            ...user,
+            ...result.user,
+            profilePhoto: result.user.profilePhoto ??
+              (pending.profile.profilePhoto !== undefined
+                ? pending.profile.profilePhoto
+                : user.profilePhoto),
+          };
+          await clearPendingChanges(currentUser.email, ['profile']);
+        }
+
+        let plan = dayPlan;
+        if (Array.isArray(pending?.dayPlan)) {
+          plan = pending.dayPlan;
+          await saveUserPlan(currentUser.email, plan);
+          await clearPendingChanges(currentUser.email, ['dayPlan']);
+        }
+
+        const [profileResult, planResult] = await Promise.all([
+          fetchUserProfile(currentUser.email),
+          fetchUserPlan(currentUser.email),
+        ]);
+        user = {
+          ...user,
+          ...profileResult.user,
+          profilePhoto: profileResult.user.profilePhoto ?? user.profilePhoto,
+        };
+        plan = Array.isArray(planResult.plan) ? planResult.plan : plan;
+        user.dayPlan = plan;
+        if (!active) return;
+        setCurrentUser(user);
+        setDayPlan(plan);
+        await saveActiveSession(user);
+        setSyncNotice('');
+      } catch {
+        if (active) {
+          setSyncNotice('Offline mode: saved data is available. Changes will sync when connected.');
+        }
+      } finally {
+        syncing = false;
+      }
+    };
+
+    const onAppStateChange = (state) => {
+      if (state === 'active') syncAccount();
+    };
+    const appStateSubscription = AppState.addEventListener('change', onAppStateChange);
+    if (typeof window !== 'undefined') window.addEventListener('online', syncAccount);
+    syncAccount();
+
+    return () => {
+      active = false;
+      appStateSubscription.remove();
+      if (typeof window !== 'undefined') window.removeEventListener('online', syncAccount);
+    };
+  }, [currentUser?.email, currentUser?.isAdmin]);
+
+  if (!frauncesLoaded || !outfitLoaded || restoringSession) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator color={colors.terra} size="large" />
@@ -120,6 +240,7 @@ export default function App() {
     }
 
     try {
+      pendingCredentials.current = { email: cleanEmail, password };
       const result = await registerUser({
         firstName: cleanFirstName,
         lastName: cleanLastName,
@@ -134,6 +255,7 @@ export default function App() {
         challengeToken: result.challengeToken,
       };
     } catch (error) {
+      pendingCredentials.current = null;
       return { ok: false, errors: error.errors || { form: error.message } };
     }
   };
@@ -163,8 +285,14 @@ export default function App() {
         challengeToken,
         otp: cleanOtp,
       });
+      const credentials = pendingCredentials.current;
+      if (credentials?.email === cleanEmail) {
+        await saveOfflineVerifier(cleanEmail, credentials.password);
+      }
+      pendingCredentials.current = null;
       setCurrentUser(user);
       setDayPlan(user.dayPlan || []);
+      await saveActiveSession(user);
       return { ok: true, userName: user.firstName };
     } catch (error) {
       return { ok: false, errors: error.errors || { form: error.message } };
@@ -191,6 +319,7 @@ export default function App() {
           userName: result.user,
         };
       }
+      pendingCredentials.current = { email: cleanEmail, password };
       return {
         ok: true,
         otpRequired: true,
@@ -198,6 +327,20 @@ export default function App() {
         challengeToken: result.challengeToken,
       };
     } catch (error) {
+      if (error.code === 'NETWORK_UNAVAILABLE') {
+        try {
+          const cachedUser = await restoreCachedAccount(cleanEmail);
+          if (
+            cachedUser &&
+            !cachedUser.isAdmin &&
+            await verifyOfflinePassword(cleanEmail, password)
+          ) {
+            return { ok: true, offlineUser: cachedUser };
+          }
+        } catch (offlineError) {
+          console.error('Offline sign-in could not be verified:', offlineError);
+        }
+      }
       return { ok: false, errors: error.errors || { form: error.message } };
     }
   };
@@ -223,8 +366,14 @@ export default function App() {
         challengeToken,
         otp: cleanOtp,
       });
+      const credentials = pendingCredentials.current;
+      if (credentials?.email === cleanEmail) {
+        await saveOfflineVerifier(cleanEmail, credentials.password);
+      }
+      pendingCredentials.current = null;
       setCurrentUser(user);
       setDayPlan(user.dayPlan || []);
+      await saveActiveSession(user);
       return { ok: true, userName: user.firstName };
     } catch (error) {
       return { ok: false, errors: error.errors || { form: error.message } };
@@ -280,27 +429,48 @@ export default function App() {
     setScreen('attraction');
   };
 
-  const addToPlan = (entry) => {
-    setDayPlan((prev) => {
-      const idx = prev.findIndex((e) => e.attractionId === entry.attractionId);
-      const next = idx >= 0
-        ? prev.map((item, itemIndex) => itemIndex === idx ? entry : item)
-        : [...prev, entry];
-      if (currentUser?.email) saveUserPlan(currentUser.email, next).catch(console.error);
-      return next;
-    });
+  const persistPlan = async (nextPlan) => {
+    if (!currentUser?.email) return;
+    const updatedUser = { ...currentUser, dayPlan: nextPlan };
+    setCurrentUser(updatedUser);
+    await saveCachedAccount(updatedUser, nextPlan);
+    await saveActiveSession(updatedUser);
+    try {
+      await saveUserPlan(currentUser.email, nextPlan);
+      await clearPendingChanges(currentUser.email, ['dayPlan']);
+      setSyncNotice('');
+    } catch {
+      await savePendingChanges(currentUser.email, { dayPlan: nextPlan });
+      setSyncNotice('Saved on this device. Your plan will sync when you’re online.');
+    }
   };
 
-  const updatePlan = (nextPlan) => {
+  const addToPlan = async (entry) => {
+    const index = dayPlan.findIndex((item) => item.attractionId === entry.attractionId);
+    const nextPlan = index >= 0
+      ? dayPlan.map((item, itemIndex) => itemIndex === index ? entry : item)
+      : [...dayPlan, entry];
     setDayPlan(nextPlan);
-    if (currentUser?.email) saveUserPlan(currentUser.email, nextPlan).catch(console.error);
+    await persistPlan(nextPlan);
   };
 
-  const handleAuthSuccess = (nameOrUser) => {
+  const updatePlan = async (nextPlan) => {
+    setDayPlan(nextPlan);
+    await persistPlan(nextPlan);
+  };
+
+  const handleAuthSuccess = async (nameOrUser) => {
     const user = typeof nameOrUser === 'object'
       ? nameOrUser
       : { firstName: nameOrUser, dayPlan: [] };
     setCurrentUser((prev) => prev || user);
+    setDayPlan(user.dayPlan || []);
+    try {
+      await saveActiveSession(user);
+      setSyncNotice('Your account is saved on this device for offline access.');
+    } catch (error) {
+      console.error('Could not save the local session:', error);
+    }
     if (user.isAdmin) setScreen('admin');
   };
 
@@ -374,13 +544,15 @@ export default function App() {
                 onViewPlan={() => setScreen('dayplan')}
                 planCount={dayPlan.length}
                 currentUser={currentUser}
+                syncNotice={syncNotice}
                 onViewProfile={() => setScreen('profile')}
                 onPrivacy={() => setScreen('privacy')}
                 onAbout={() => setScreen('about')}
                 onSignOut={async () => {
-                  if (currentUser?.email) {
-                    await saveUserPlan(currentUser.email, dayPlan).catch(console.error);
+                  if (currentUser?.email && !currentUser.isAdmin) {
+                    await persistPlan(dayPlan);
                   }
+                  await clearActiveSession();
                   setCurrentUser(null);
                   setAuthMode('landing');
                   setScreen('home');
@@ -428,11 +600,36 @@ export default function App() {
                 onBack={() => setScreen('home')}
                 onAdmin={() => setScreen('admin')}
                 onSave={async (profile) => {
-                  const result = await updateUserProfile(currentUser.email, profile);
-                  setCurrentUser(result.user);
+                  const updatedUser = { ...currentUser, ...profile };
+                  setCurrentUser(updatedUser);
+                  await saveCachedAccount(updatedUser, dayPlan);
+                  await saveActiveSession(updatedUser);
+                  try {
+                    const result = await updateUserProfile(currentUser.email, profile);
+                    const savedUser = {
+                      ...updatedUser,
+                      ...result.user,
+                      profilePhoto: result.user.profilePhoto ??
+                        (profile.profilePhoto !== undefined
+                          ? profile.profilePhoto
+                          : updatedUser.profilePhoto),
+                    };
+                    setCurrentUser(savedUser);
+                    await saveCachedAccount(savedUser, dayPlan);
+                    await saveActiveSession(savedUser);
+                    await clearPendingChanges(currentUser.email, ['profile']);
+                    setSyncNotice('');
+                    return { offline: false };
+                  } catch {
+                    await savePendingChanges(currentUser.email, { profile });
+                    setSyncNotice('Profile saved on this device. It will sync when you’re online.');
+                    return { offline: true };
+                  }
                 }}
                 onDelete={async () => {
                   await deleteUserAccount(currentUser.email);
+                  await removeCachedAccount(currentUser.email);
+                  await clearActiveSession();
                   setCurrentUser(null);
                   setDayPlan([]);
                   setAuthMode('landing');
@@ -443,11 +640,7 @@ export default function App() {
             {screen === 'admin' && (
               <AdminScreen
                 adminEmail={currentUser.email}
-                onBack={() => {
-                  setCurrentUser(null);
-                  setAuthMode('landing');
-                  setScreen('home');
-                }}
+                onBack={() => setScreen('profile')}
               />
             )}
           </>

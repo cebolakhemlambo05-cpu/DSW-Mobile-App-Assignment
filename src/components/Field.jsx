@@ -37,11 +37,11 @@ exports.default = Field;
 const react_1 = __importStar(require("react"));
 const react_native_1 = require("react-native");
 const theme_1 = require("../theme/theme");
-function Field({ label, value, onChangeText, placeholder, error, secureTextEntry, keyboardType, autoCapitalize = "sentences", onSubmitEditing, }) {
+function Field({ label, value, onChangeText, placeholder, error, secureTextEntry, keyboardType, autoCapitalize = "sentences", onSubmitEditing, returnKeyType = "next", blurOnSubmit = false, inputRef }) {
     const [focused, setFocused] = (0, react_1.useState)(false);
     return (<react_native_1.View style={styles.wrap}>
       <react_native_1.Text style={styles.label}>{label}</react_native_1.Text>
-      <react_native_1.TextInput value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor="rgba(62,50,38,0.35)" secureTextEntry={secureTextEntry} keyboardType={keyboardType} autoCapitalize={autoCapitalize} onSubmitEditing={onSubmitEditing} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)} style={[
+      <react_native_1.TextInput ref={inputRef} value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor="rgba(62,50,38,0.35)" secureTextEntry={secureTextEntry} keyboardType={keyboardType} autoCapitalize={autoCapitalize} onSubmitEditing={onSubmitEditing} returnKeyType={returnKeyType} blurOnSubmit={blurOnSubmit} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)} style={[
             styles.input,
             { borderColor: error ? theme_1.colors.terra : focused ? theme_1.colors.savanna : "rgba(62,50,38,0.12)" },
         ]}/>

@@ -10,10 +10,19 @@
       "resizeMode": "contain",
       "backgroundColor": "#E8DCC4"
     },
-    "assetBundlePatterns": ["**/*"],
-    "ios": { "supportsTablet": true },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
     "android": {
-      "adaptiveIcon": { "backgroundColor": "#E8DCC4" }
-    }
+      "adaptiveIcon": {
+        "backgroundColor": "#E8DCC4"
+      }
+    },
+    "plugins": [
+      "expo-secure-store"
+    ]
   }
 }
