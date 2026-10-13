@@ -11,18 +11,59 @@ const theme_1 = require("../theme/theme");
 const format_1 = require("../utils/format");
 const Badge_1 = __importDefault(require("./Badge"));
 const Icons_1 = require("./Icons");
-const { height: SCREEN_H } = react_native_1.Dimensions.get("window");
-function AccomDetailModal({ visible, accom, attractionName, isSelected, onClose, onSelect, }) {
+const { height: SCREEN_H, width: SCREEN_W } = react_native_1.Dimensions.get("window");
+function AccomDetailModal({ visible, accom, attractionName, isSelected, onClose, onSelect, onDirections, }) {
     if (!accom)
         return null;
-    const d = accom.details;
-    const stars = Math.round(accom.rating);
+    const d = { ...(accom.details || {}) };
+    if (!d.roomTypes)
+        d.roomTypes = [];
+    if (!d.amenities)
+        d.amenities = [];
+    if (!d.reviews)
+        d.reviews = [];
+    if (!d.cancellation)
+        d.cancellation = "Check with property for cancellation terms.";
+    if (!d.address)
+        d.address = "Address not provided by the accommodation provider.";
+    if (!d.phone)
+        d.phone = "Phone number not provided by the accommodation provider.";
+    if (!d.checkIn)
+        d.checkIn = "Check with property";
+    if (!d.checkOut)
+        d.checkOut = "Check with property";
+    const displayedRating = Number.isFinite(accom.rating) ? accom.rating : null;
+    const displayedReviewCount = accom.reviewCount;
+    const images = d.images?.length ? d.images : d.image ? [d.image] : [];
+    const stars = Number.isFinite(displayedRating) ? Math.round(displayedRating) : 0;
+    const checkPrices = async () => {
+        const propertyWebsite = typeof d.website === "string" && /^https?:\/\//i.test(d.website)
+            ? d.website
+            : null;
+        const searchUrl = `https://www.bing.com/search?q=${encodeURIComponent(`${accom.name} accommodation room prices`)}`;
+        try {
+            await react_native_1.Linking.openURL(propertyWebsite || searchUrl);
+        }
+        catch (_error) {
+            react_native_1.Alert.alert("Unable to check prices", "Please try again or contact the accommodation directly.");
+        }
+    };
     return (<react_native_1.Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <react_native_1.Pressable style={styles.backdrop} onPress={onClose}/>
       <react_native_1.View style={[styles.sheet, { maxHeight: SCREEN_H * 0.92 }]}>
         {/* Photo header */}
         <react_native_1.View style={styles.heroWrap}>
-          <react_native_1.Image source={{ uri: d.image }} style={styles.hero}/>
+          {images.length > 0 ? (
+            <react_native_1.ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false}>
+              {images.map((image, index) => (
+                <react_native_1.Image key={`${image}-${index}`} source={{ uri: image }} style={[styles.hero, { width: SCREEN_W }]} />
+              ))}
+            </react_native_1.ScrollView>
+          ) : (
+            <react_native_1.View style={styles.noPhoto}>
+              <react_native_1.Text style={styles.noPhotoText}>No property photos available</react_native_1.Text>
+            </react_native_1.View>
+          )}
           <expo_linear_gradient_1.LinearGradient colors={["transparent", "rgba(0,0,0,0.1)", "rgba(0,0,0,0.6)"]} style={react_native_1.StyleSheet.absoluteFill}/>
           <react_native_1.Pressable onPress={onClose} style={styles.closeBtn}>
             <Icons_1.IconClose color="#fff"/>
@@ -40,19 +81,26 @@ function AccomDetailModal({ visible, accom, attractionName, isSelected, onClose,
           </react_native_1.View>
         </react_native_1.View>
 
+        {!!d.photoAttributions?.length && (
+          <react_native_1.Text style={styles.ratingSub}>
+            Photo credits: {d.photoAttributions.join(", ")}
+          </react_native_1.Text>
+        )}
         <react_native_1.ScrollView style={styles.body} contentContainerStyle={{ paddingBottom: 16 }} showsVerticalScrollIndicator={false}>
           {/* Rating + price */}
           <react_native_1.View style={styles.ratingPriceRow}>
             <react_native_1.View>
               <react_native_1.View style={styles.starsRow}>
                 {Array.from({ length: 5 }).map((_, i) => (<Icons_1.IconStar key={i} size={15} filled={i < stars}/>))}
-                <react_native_1.Text style={styles.ratingNum}> {accom.rating}</react_native_1.Text>
+                <react_native_1.Text style={styles.ratingNum}> {displayedRating}</react_native_1.Text>
               </react_native_1.View>
-              <react_native_1.Text style={styles.ratingSub}>Guest rating · {d.reviews.length} reviews</react_native_1.Text>
+              <react_native_1.Text style={styles.ratingSub}>
+                  {Number.isFinite(displayedRating) ? `Guest rating · ${displayedReviewCount || d.reviews?.length || 0} reviews` : 'Guest rating unavailable'}
+              </react_native_1.Text>
             </react_native_1.View>
             <react_native_1.View style={{ alignItems: "flex-end" }}>
-              <react_native_1.Text style={styles.priceBig}>{(0, format_1.fmt)(accom.pricePerNight)}</react_native_1.Text>
-              <react_native_1.Text style={styles.priceSub}>per night (from)</react_native_1.Text>
+              <react_native_1.Text style={styles.priceBig}>{(0, format_1.fmt)(accom.pricePerNight, accom.currency)}</react_native_1.Text>
+              <react_native_1.Text style={styles.priceSub}>{accom.pricePerNight == null ? 'No verified live rate' : 'per night (from provider offer)'}</react_native_1.Text>
             </react_native_1.View>
           </react_native_1.View>
 
@@ -63,7 +111,6 @@ function AccomDetailModal({ visible, accom, attractionName, isSelected, onClose,
           </react_native_1.View>
 
           <react_native_1.Text style={styles.description}>{d.description}</react_native_1.Text>
-
           {/* Key info grid */}
           <react_native_1.View style={styles.infoGrid}>
             {[
@@ -83,25 +130,45 @@ function AccomDetailModal({ visible, accom, attractionName, isSelected, onClose,
           {/* Amenities */}
           <react_native_1.Text style={styles.sectionTitle}>Services & Amenities</react_native_1.Text>
           <react_native_1.View style={styles.amenitiesGrid}>
-            {d.amenities.map((a) => (<react_native_1.View key={a} style={styles.amenityRow}>
+            {d.amenities.length ? d.amenities.map((a) => (<react_native_1.View key={a} style={styles.amenityRow}>
                 <Icons_1.IconCheck color={theme_1.colors.sky}/>
                 <react_native_1.Text style={styles.amenityText}> {a}</react_native_1.Text>
-              </react_native_1.View>))}
+              </react_native_1.View>)) : (<react_native_1.Text style={styles.ratingSub}>Amenities have not been provided by this listing.</react_native_1.Text>)}
           </react_native_1.View>
 
           {/* Room types */}
           <react_native_1.Text style={styles.sectionTitle}>Room Types</react_native_1.Text>
           <react_native_1.View style={{ gap: 8 }}>
-            {d.roomTypes.map((r) => (<react_native_1.View key={r.name} style={styles.roomRow}>
+            {d.roomTypes.length ? d.roomTypes.map((r, index) => {
+              const room = r && typeof r === "object"
+                ? r
+                : { name: typeof r === "string" ? r : "Room" };
+              const sleeps = Number(room.sleeps);
+              const occupancy = Number.isInteger(sleeps) && sleeps > 0
+                ? `Sleeps ${sleeps} people per room`
+                : "Occupancy not provided";
+              const bedDetails = typeof room.beds === "string" && room.beds.trim()
+                ? `${room.beds} · `
+                : "";
+              return (<react_native_1.View key={room.name || `room-${index}`} style={styles.roomRow}>
                 <react_native_1.View style={{ flex: 1 }}>
-                  <react_native_1.Text style={styles.roomName}>{r.name}</react_native_1.Text>
-                  <react_native_1.Text style={styles.roomMeta}>{r.beds} · Sleeps {r.sleeps}</react_native_1.Text>
+                  <react_native_1.Text style={styles.roomName}>{room.name || "Room"}</react_native_1.Text>
+                  <react_native_1.Text style={styles.roomMeta}>{bedDetails}{occupancy}</react_native_1.Text>
                 </react_native_1.View>
-                <react_native_1.Text style={styles.roomPrice}>
-                  {(0, format_1.fmt)(r.pricePerNight)}
-                  <react_native_1.Text style={styles.roomPriceUnit}>/night</react_native_1.Text>
-                </react_native_1.Text>
-              </react_native_1.View>))}
+                <react_native_1.Pressable accessibilityRole="button" onPress={checkPrices} style={styles.priceCheckButton}>
+                  <react_native_1.Text style={styles.priceCheckText}>
+                    {room.pricePerNight == null
+                      ? "Check prices"
+                      : `${(0, format_1.fmt)(room.pricePerNight, accom.currency)} /night`}
+                  </react_native_1.Text>
+                </react_native_1.Pressable>
+              </react_native_1.View>);
+            }) : (<>
+              <react_native_1.Text style={styles.ratingSub}>Room types, occupancy and nightly rates are not provided by this listing.</react_native_1.Text>
+              <react_native_1.Pressable accessibilityRole="button" onPress={checkPrices} style={styles.priceCheckButton}>
+                <react_native_1.Text style={styles.priceCheckText}>Check prices</react_native_1.Text>
+              </react_native_1.Pressable>
+            </>)}
           </react_native_1.View>
 
           {/* Cancellation */}
@@ -116,7 +183,7 @@ function AccomDetailModal({ visible, accom, attractionName, isSelected, onClose,
           {/* Reviews */}
           <react_native_1.Text style={styles.sectionTitle}>Guest Reviews</react_native_1.Text>
           <react_native_1.View style={{ gap: 10 }}>
-            {d.reviews.map((r) => (<react_native_1.View key={r.author} style={styles.reviewCard}>
+            {d.reviews.length ? d.reviews.map((r) => (<react_native_1.View key={r.author} style={styles.reviewCard}>
                 <react_native_1.View style={styles.reviewHeader}>
                   <react_native_1.Text style={styles.reviewAuthor}>{r.author}</react_native_1.Text>
                   <react_native_1.View style={{ flexDirection: "row", gap: 2 }}>
@@ -124,12 +191,15 @@ function AccomDetailModal({ visible, accom, attractionName, isSelected, onClose,
                   </react_native_1.View>
                 </react_native_1.View>
                 <react_native_1.Text style={styles.reviewText}>&ldquo;{r.text}&rdquo;</react_native_1.Text>
-              </react_native_1.View>))}
+              </react_native_1.View>)) : (<react_native_1.Text style={styles.ratingSub}>Written reviews are not available from this provider.</react_native_1.Text>)}
           </react_native_1.View>
         </react_native_1.ScrollView>
 
         {/* Sticky footer */}
         <react_native_1.View style={styles.footer}>
+          <react_native_1.Pressable accessibilityRole="button" onPress={onDirections} style={[styles.ctaBtn, styles.directionsCta]}>
+            <react_native_1.Text style={styles.ctaText}>Directions</react_native_1.Text>
+          </react_native_1.Pressable>
           <react_native_1.Pressable onPress={() => { onSelect(); onClose(); }} style={[styles.ctaBtn, { backgroundColor: isSelected ? theme_1.colors.savanna : theme_1.colors.terra }]}>
             {isSelected ? (<react_native_1.View style={styles.ctaRow}>
                 <Icons_1.IconCheck color={theme_1.colors.ivory}/>
@@ -155,6 +225,8 @@ const styles = react_native_1.StyleSheet.create({
     },
     heroWrap: { height: 200, backgroundColor: theme_1.colors.sand },
     hero: { width: "100%", height: "100%" },
+    noPhoto: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme_1.colors.sand },
+    noPhotoText: { color: theme_1.colors.charcoal, fontSize: 12 },
     closeBtn: {
         position: "absolute",
         top: 16,
@@ -219,6 +291,15 @@ const styles = react_native_1.StyleSheet.create({
     roomMeta: { fontSize: 11, color: theme_1.colors.charcoal, opacity: 0.6, marginTop: 2 },
     roomPrice: { fontSize: 16, fontFamily: theme_1.fonts.display, color: theme_1.colors.charcoal },
     roomPriceUnit: { fontSize: 10, fontFamily: theme_1.fonts.body, opacity: 0.5 },
+    priceCheckButton: {
+        minHeight: 40,
+        paddingHorizontal: 14,
+        borderRadius: 10,
+        backgroundColor: theme_1.colors.savanna,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    priceCheckText: { fontSize: 12, fontFamily: theme_1.fonts.bodySemiBold, color: theme_1.colors.ivory },
     cancellationBox: { flexDirection: "row", backgroundColor: theme_1.colors.sand, borderRadius: 12, padding: 16, marginTop: 20, marginBottom: 20 },
     cancellationTitle: { fontSize: 11, fontFamily: theme_1.fonts.bodyBold, textTransform: "uppercase", color: theme_1.colors.savanna, marginBottom: 4 },
     cancellationText: { fontSize: 12, lineHeight: 17, color: theme_1.colors.charcoal, opacity: 0.75 },
@@ -234,6 +315,7 @@ const styles = react_native_1.StyleSheet.create({
         backgroundColor: theme_1.colors.ivory,
     },
     ctaBtn: { paddingVertical: 15, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+    directionsCta: { marginBottom: 8, backgroundColor: theme_1.colors.savanna },
     ctaRow: { flexDirection: "row", alignItems: "center" },
     ctaText: { fontSize: 14, fontFamily: theme_1.fonts.bodyBold, color: theme_1.colors.ivory },
     deselectHint: { textAlign: "center", fontSize: 11, color: theme_1.colors.charcoal, opacity: 0.5, marginTop: 8 },

@@ -9,7 +9,8 @@ const react_native_1 = require("react-native");
 const theme_1 = require("../theme/theme");
 const Icons_1 = require("./Icons");
 const Badge_1 = __importDefault(require("./Badge"));
-function AccomCard({ accom: ac, selected, onView, onSelect, }) {
+const format_1 = require("../utils/format");
+function AccomCard({ accom: ac, selected, onView, onSelect, onDirections, overBudget = false, }) {
     return (
       <react_native_1.View
         style={[
@@ -48,6 +49,9 @@ function AccomCard({ accom: ac, selected, onView, onSelect, }) {
                     Peak ×2
                   </Badge_1.default>
                 )}
+                {overBudget && (
+                  <Badge_1.default color="mustard">Over budget</Badge_1.default>
+                )}
               </react_native_1.View>
               <react_native_1.View style={styles.metaRow}>
                 <react_native_1.Text
@@ -82,26 +86,26 @@ function AccomCard({ accom: ac, selected, onView, onSelect, }) {
                     ]}
                   >
                     {' '}
-                    {ac.distanceKm}km to gate
+                    {Number.isFinite(ac.distanceKm) ? `${ac.distanceKm}km away` : 'Distance unavailable'}
                   </react_native_1.Text>
                 </react_native_1.View>
-                <react_native_1.View style={styles.metaItem}>
-                  <Icons_1.IconStar size={11} />
-                  <react_native_1.Text
-                    style={[
-                      styles.metaText,
-                      {
-                        color: selected
-                          ? theme_1.colors.sand
-                          : theme_1.colors.charcoal,
-                        opacity: selected ? 0.8 : 0.6,
-                      },
-                    ]}
-                  >
-                    {' '}
-                    {ac.rating}
-                  </react_native_1.Text>
-                </react_native_1.View>
+                {Number.isFinite(ac.rating) && (
+                  <react_native_1.View style={styles.metaItem}>
+                    <Icons_1.IconStar size={11} />
+                    <react_native_1.Text
+                      style={[
+                        styles.metaText,
+                        {
+                          color: selected ? theme_1.colors.sand : theme_1.colors.charcoal,
+                          opacity: selected ? 0.8 : 0.6,
+                        },
+                      ]}
+                    >
+                      {' '}
+                      {ac.rating}{ac.reviewCount ? ` (${ac.reviewCount})` : ''}
+                    </react_native_1.Text>
+                  </react_native_1.View>
+                )}
               </react_native_1.View>
             </react_native_1.View>
             <react_native_1.View style={{ alignItems: 'flex-end' }}>
@@ -115,9 +119,7 @@ function AccomCard({ accom: ac, selected, onView, onSelect, }) {
                   },
                 ]}
               >
-                {ac.pricePerNight == null
-                  ? 'Check price'
-                  : `R${ac.pricePerNight.toLocaleString('en-ZA')}`}
+                {(0, format_1.fmt)(ac.pricePerNight, ac.currency)}
               </react_native_1.Text>
               <react_native_1.Text
                 style={[
@@ -130,7 +132,7 @@ function AccomCard({ accom: ac, selected, onView, onSelect, }) {
                 ]}
               >
                 {ac.pricePerNight == null
-                  ? 'Google price level only'
+                  ? 'Price unavailable · check property'
                   : '/night'}
               </react_native_1.Text>
             </react_native_1.View>
@@ -177,6 +179,15 @@ function AccomCard({ accom: ac, selected, onView, onSelect, }) {
               </react_native_1.Text>
             )}
           </react_native_1.Pressable>
+          <react_native_1.Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Get directions from ${ac.name} to the attraction`}
+            onPress={onDirections}
+            style={styles.directionsBtn}
+          >
+            <Icons_1.IconMapPin size={12} color={theme_1.colors.savanna} />
+            <react_native_1.Text style={styles.directionsText}>Directions</react_native_1.Text>
+          </react_native_1.Pressable>
           <react_native_1.Text
             style={[
               styles.amenitiesPreview,
@@ -187,7 +198,7 @@ function AccomCard({ accom: ac, selected, onView, onSelect, }) {
             ]}
             numberOfLines={1}
           >
-            {ac.details.amenities.slice(0, 2).join(' · ')}
+            {(ac.details?.amenities || []).slice(0, 2).join(' · ')}
           </react_native_1.Text>
         </react_native_1.View>
       </react_native_1.View>
@@ -221,9 +232,11 @@ const styles = react_native_1.StyleSheet.create({
         paddingTop: 4,
         flexDirection: "row",
         alignItems: "center",
-        justifyContent: "space-between",
+        justifyContent: "flex-start",
         gap: 10,
     },
+    directionsBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 10, backgroundColor: 'rgba(58,90,64,0.09)' },
+    directionsText: { fontSize: 12, fontFamily: theme_1.fonts.bodySemiBold, color: theme_1.colors.savanna },
     selectBtn: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10 },
     selectedRow: { flexDirection: "row", alignItems: "center" },
     selectText: { fontSize: 12, fontFamily: theme_1.fonts.bodySemiBold },

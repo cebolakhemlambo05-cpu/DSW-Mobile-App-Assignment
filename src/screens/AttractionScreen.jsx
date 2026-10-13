@@ -48,9 +48,13 @@ const BudgetSlider_1 = __importDefault(require("../components/BudgetSlider"));
 const AccomCard_1 = __importDefault(require("../components/AccomCard"));
 const ActivityCard_1 = __importDefault(require("../components/ActivityCard"));
 const AccomDetailModal_1 = __importDefault(require("../components/AccomDetailModal"));
-const api_1 = require("../config/api");
+const WeatherForecast_1 = __importDefault(require("../components/WeatherForecast"));
+const NearbyPlaces_1 = __importDefault(require("../components/NearbyPlaces"));
+const placesService_1 = require("../services/placesService");
 function AttractionScreen({ attraction, onBack, onAddToPlan, existingEntry, }) {
     var _a, _b, _c;
+    const weatherLatitude = attraction.map?.latitude ?? attraction.latitude;
+    const weatherLongitude = attraction.map?.longitude ?? attraction.longitude;
     const [budget, setBudget] = (0, react_1.useState)(2500);
     const [tab, setTab] = (0, react_1.useState)("stays");
     const [selectedAccom, setSelectedAccom] = (0, react_1.useState)((_a = existingEntry === null || existingEntry === void 0 ? void 0 : existingEntry.accommodation) === null || _a === void 0 ? void 0 : _a.id);
@@ -59,21 +63,58 @@ function AttractionScreen({ attraction, onBack, onAddToPlan, existingEntry, }) {
     const [viewingAccom, setViewingAccom] = (0, react_1.useState)(null);
     const [accommodations, setAccommodations] = (0, react_1.useState)(attraction.accommodations || []);
     const [lodgingLoading, setLodgingLoading] = (0, react_1.useState)(false);
+    const [lodgingError, setLodgingError] = (0, react_1.useState)("");
     (0, react_1.useEffect)(() => {
+      const savedAccommodations = Array.isArray(attraction.accommodations) ? attraction.accommodations : [];
+      setAccommodations(savedAccommodations);
+      setLodgingError("");
+      const latitude = attraction.map?.latitude ?? attraction.latitude;
+      const longitude = attraction.map?.longitude ?? attraction.longitude;
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+        setLodgingLoading(false);
+        setLodgingError("Nearby accommodation search requires attraction coordinates.");
+        return undefined;
+      }
+      const controller = new AbortController();
       let active = true;
-      if (attraction.accommodations?.length) return undefined;
       setLodgingLoading(true);
-      (0, api_1.fetchJson)(`/api/attractions/${encodeURIComponent(attraction.id)}/lodging`)
-        .then(({ data }) => { if (active) setAccommodations(data || []); })
-        .catch(() => { if (active) setAccommodations([]); })
-        .finally(() => { if (active) setLodgingLoading(false); });
-      return () => { active = false; };
+      (0, placesService_1.fetchAccommodationOffers)({
+        latitude: Number.isFinite(latitude) ? latitude : undefined,
+        longitude: Number.isFinite(longitude) ? longitude : undefined,
+        attractionName: attraction.name,
+        attractionLocation: attraction.location,
+        signal: controller.signal,
+      })
+        .then((offers) => {
+          if (!active) return;
+          const byName = new Map();
+          [...savedAccommodations, ...offers].forEach((accommodation) => {
+            const key = String(accommodation.name || accommodation.id).trim().toLowerCase();
+            const current = byName.get(key);
+            if (!current || (current.pricePerNight == null && accommodation.pricePerNight != null)) {
+              byName.set(key, accommodation);
+            }
+          });
+          setAccommodations(Array.from(byName.values()));
+        })
+        .catch((error) => {
+          if (active && error?.name !== "AbortError") {
+            setLodgingError(error.message || "Live accommodation search failed.");
+          }
+        })
+        .finally(() => {
+          if (active) setLodgingLoading(false);
+        });
+      return () => {
+        active = false;
+        controller.abort();
+      };
     }, [attraction]);
-    const sortedAccoms = (0, react_1.useMemo)(() => [...accommodations].sort((a, b) => (a.pricePerNight ?? Infinity) - (b.pricePerNight ?? Infinity)), [accommodations]);
-    const pricedAccoms = (0, react_1.useMemo)(() => sortedAccoms.filter((a) => a.pricePerNight != null), [sortedAccoms]);
-    const filteredAccoms = (0, react_1.useMemo)(() => pricedAccoms.filter((a) => a.pricePerNight <= budget), [pricedAccoms, budget]);
-    const unknownPriceAccoms = (0, react_1.useMemo)(() => sortedAccoms.filter((a) => a.pricePerNight == null), [sortedAccoms]);
-    const hiddenAccoms = (0, react_1.useMemo)(() => pricedAccoms.filter((a) => a.pricePerNight > budget), [pricedAccoms, budget]);
+    const sortedAccoms = (0, react_1.useMemo)(() => [...accommodations].sort((a, b) => {
+        const priceA = Number.isFinite(a.pricePerNight) ? a.pricePerNight : Infinity;
+        const priceB = Number.isFinite(b.pricePerNight) ? b.pricePerNight : Infinity;
+        return priceA - priceB || (b.rating || 0) - (a.rating || 0);
+    }), [accommodations]);
     const toggleActivity = (id) => {
         setSelectedActivities((prev) => {
             const next = new Set(prev);
@@ -84,17 +125,51 @@ function AttractionScreen({ attraction, onBack, onAddToPlan, existingEntry, }) {
     const selectedAccomData = accommodations.find((a) => a.id === selectedAccom);
     const selectedActivityData = attraction.activities.filter((a) => selectedActivities.has(a.id));
     const totalActivityCost = selectedActivityData.reduce((s, a) => s + a.pricePerPerson, 0);
-    const totalCost = ((_c = selectedAccomData === null || selectedAccomData === void 0 ? void 0 : selectedAccomData.pricePerNight) !== null && _c !== void 0 ? _c : 0) + totalActivityCost;
+    const accommodationIsRand = !selectedAccomData || !selectedAccomData.currency || selectedAccomData.currency === "ZAR";
+    const totalIsPartial = !!selectedAccomData && (selectedAccomData.pricePerNight == null || !accommodationIsRand);
+    const totalCost = (accommodationIsRand ? ((_c = selectedAccomData === null || selectedAccomData === void 0 ? void 0 : selectedAccomData.pricePerNight) !== null && _c !== void 0 ? _c : 0) : 0) + totalActivityCost;
     const addToPlan = () => {
         onAddToPlan({
             attractionId: attraction.id,
             attractionName: attraction.name,
             accommodation: selectedAccomData
-                ? { id: selectedAccomData.id, name: selectedAccomData.name, price: selectedAccomData.pricePerNight }
+                ? { id: selectedAccomData.id, name: selectedAccomData.name, price: selectedAccomData.pricePerNight, currency: selectedAccomData.currency || "ZAR" }
                 : undefined,
             activities: selectedActivityData.map((a) => ({ id: a.id, name: a.name, price: a.pricePerPerson })),
         });
         onBack();
+    };
+    const openDirections = async () => {
+        const { latitude, longitude, mapQuery } = attraction.map || {};
+        const hasCoordinates = Number.isFinite(latitude) && Number.isFinite(longitude);
+        const destination = hasCoordinates
+            ? `${latitude},${longitude}`
+            : mapQuery || `${attraction.name}, ${attraction.location}`;
+        const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}`;
+        try {
+            await react_native_1.Linking.openURL(directionsUrl);
+        }
+        catch (_error) {
+            react_native_1.Alert.alert("Unable to open directions", "Please try opening Google Maps on your device.");
+        }
+    };
+    const openAccommodationDirections = async (accommodation) => {
+        const attractionMap = attraction.map || {};
+        const hasDestinationCoordinates = Number.isFinite(attractionMap.latitude) && Number.isFinite(attractionMap.longitude);
+        const hasOriginCoordinates = Number.isFinite(accommodation.latitude) && Number.isFinite(accommodation.longitude);
+        const origin = hasOriginCoordinates
+            ? `${accommodation.latitude},${accommodation.longitude}`
+            : accommodation.details?.address || accommodation.name;
+        const destination = hasDestinationCoordinates
+            ? `${attractionMap.latitude},${attractionMap.longitude}`
+            : attractionMap.mapQuery || `${attraction.name}, ${attraction.location}`;
+        const directionsUrl = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&travelmode=driving`;
+        try {
+            await react_native_1.Linking.openURL(directionsUrl);
+        }
+        catch (_error) {
+            react_native_1.Alert.alert("Unable to open directions", "Please try opening Google Maps on your device.");
+        }
     };
     return (<react_native_1.View style={styles.screen}>
       <react_native_1.ScrollView showsVerticalScrollIndicator={false}>
@@ -120,7 +195,20 @@ function AttractionScreen({ attraction, onBack, onAddToPlan, existingEntry, }) {
         <react_native_1.View style={styles.content}>
           <react_native_1.Text style={styles.description}>{attraction.description}</react_native_1.Text>
 
-          <BudgetSlider_1.default value={budget} onChange={setBudget} label="Filter by budget"/>
+          <WeatherForecast_1.default latitude={weatherLatitude} longitude={weatherLongitude}/>
+
+          <react_native_1.Pressable accessibilityRole="button" onPress={openDirections} style={styles.directionsBtn}>
+            <react_native_1.Text style={styles.directionsBtnText}>Get directions in Google Maps</react_native_1.Text>
+          </react_native_1.Pressable>
+
+          <NearbyPlaces_1.default
+            latitude={weatherLatitude}
+            longitude={weatherLongitude}
+            attractionName={attraction.name}
+            attractionLocation={attraction.location}
+          />
+
+          <BudgetSlider_1.default value={budget} onChange={setBudget} label="Your budget per night"/>
 
           <react_native_1.View style={styles.tabRow}>
             {["stays", "activities"].map((t) => (<react_native_1.Pressable key={t} onPress={() => setTab(t)} style={[styles.tabBtn, tab === t && { backgroundColor: theme_1.colors.savanna }]}>
@@ -132,15 +220,19 @@ function AttractionScreen({ attraction, onBack, onAddToPlan, existingEntry, }) {
 
           {tab === "stays" && (<react_native_1.View style={{ gap: 8 }}>
               <react_native_1.Text style={styles.hintText}>
-                Sorted cheapest → most expensive · Tap to view details & select · Distance to {attraction.name.split(" ")[0]} gate
+                {sortedAccoms.length} stays · Sorted by nightly price, cheapest first · Tap a card for details
               </react_native_1.Text>
+              {sortedAccoms.some((ac) => ac.source === "OpenStreetMap") && (
+                <react_native_1.Text style={styles.hintText}>
+                  Mapped places © OpenStreetMap contributors · Rates and availability are not included.
+                </react_native_1.Text>
+              )}
               {lodgingLoading && (<react_native_1.View style={{ paddingVertical: 30, alignItems: "center" }}><react_native_1.Text style={styles.emptyHint}>Loading nearby stays...</react_native_1.Text></react_native_1.View>)}
-              {!lodgingLoading && filteredAccoms.length === 0 && unknownPriceAccoms.length === 0 && (<react_native_1.View style={{ paddingVertical: 30, alignItems: "center" }}>
-                  <react_native_1.Text style={styles.emptyHint}>No stays within R{budget.toLocaleString("en-ZA")} — try raising your budget</react_native_1.Text>
+              {!!lodgingError && (<react_native_1.Text style={styles.errorHint}>Live accommodation search failed: {lodgingError}{sortedAccoms.length > 0 ? " Showing saved recommendations." : ""}</react_native_1.Text>)}
+              {!lodgingLoading && sortedAccoms.length === 0 && !lodgingError && (<react_native_1.View style={{ paddingVertical: 30, alignItems: "center" }}>
+                  <react_native_1.Text style={styles.emptyHint}>No nearby accommodations were found. Try another attraction or check your hotel provider configuration.</react_native_1.Text>
                 </react_native_1.View>)}
-              {filteredAccoms.map((ac) => (<AccomCard_1.default key={ac.id} accom={ac} selected={selectedAccom === ac.id} onView={() => setViewingAccom(ac)} onSelect={() => setSelectedAccom(selectedAccom === ac.id ? undefined : ac.id)}/>))}
-              {unknownPriceAccoms.length > 0 && (<react_native_1.View style={{ gap: 8 }}><react_native_1.Text style={styles.hintText}>Google provides price levels, not live nightly rates. Check each property for current pricing.</react_native_1.Text>{unknownPriceAccoms.map((ac) => (<AccomCard_1.default key={ac.id} accom={ac} selected={selectedAccom === ac.id} onView={() => setViewingAccom(ac)} onSelect={() => setSelectedAccom(selectedAccom === ac.id ? undefined : ac.id)}/>))}</react_native_1.View>)}
-              {hiddenAccoms.length > 0 && (<react_native_1.Text style={styles.hiddenHint}>{hiddenAccoms.length} stay(s) hidden (over budget)</react_native_1.Text>)}
+              {sortedAccoms.map((ac) => (<AccomCard_1.default key={ac.id} accom={ac} selected={selectedAccom === ac.id} overBudget={ac.pricePerNight != null && ac.pricePerNight > budget} onView={() => setViewingAccom(ac)} onSelect={() => setSelectedAccom(selectedAccom === ac.id ? undefined : ac.id)} onDirections={() => openAccommodationDirections(ac)}/>))}
             </react_native_1.View>)}
 
           {tab === "activities" && (<react_native_1.View style={{ gap: 8 }}>
@@ -155,11 +247,11 @@ function AttractionScreen({ attraction, onBack, onAddToPlan, existingEntry, }) {
       {(selectedAccomData || selectedActivities.size > 0) && (<react_native_1.View style={styles.stickyCta}>
           <react_native_1.View style={styles.stickyRow}>
             <react_native_1.View>
-              <react_native_1.Text style={styles.dayTotalLabel}>Day Total</react_native_1.Text>
-              <react_native_1.Text style={styles.dayTotalValue}>{(0, format_1.fmt)(totalCost)}</react_native_1.Text>
+              <react_native_1.Text style={styles.dayTotalLabel}>{totalIsPartial ? "Activities subtotal (R)" : "Day Total"}</react_native_1.Text>
+              <react_native_1.Text style={styles.dayTotalValue}>{totalIsPartial && totalActivityCost === 0 ? "Rate unavailable" : (0, format_1.fmt)(totalCost)}</react_native_1.Text>
             </react_native_1.View>
             <react_native_1.View style={{ alignItems: "flex-end" }}>
-              {selectedAccomData && (<react_native_1.Text style={styles.stickyDetail}>{selectedAccomData.name} · {(0, format_1.fmt)(selectedAccomData.pricePerNight)}</react_native_1.Text>)}
+              {selectedAccomData && (<react_native_1.Text style={styles.stickyDetail}>{selectedAccomData.name} · {(0, format_1.fmt)(selectedAccomData.pricePerNight, selectedAccomData.currency)}</react_native_1.Text>)}
               {selectedActivities.size > 0 && (<react_native_1.Text style={styles.stickyDetail}>
                   {selectedActivities.size} activit{selectedActivities.size === 1 ? "y" : "ies"} · {(0, format_1.fmt)(totalActivityCost)}
                 </react_native_1.Text>)}
@@ -170,7 +262,7 @@ function AttractionScreen({ attraction, onBack, onAddToPlan, existingEntry, }) {
           </react_native_1.Pressable>
         </react_native_1.View>)}
 
-      <AccomDetailModal_1.default visible={!!viewingAccom} accom={viewingAccom} attractionName={attraction.name} isSelected={!!viewingAccom && selectedAccom === viewingAccom.id} onClose={() => setViewingAccom(null)} onSelect={() => viewingAccom && setSelectedAccom(selectedAccom === viewingAccom.id ? undefined : viewingAccom.id)}/>
+      <AccomDetailModal_1.default visible={!!viewingAccom} accom={viewingAccom} attractionName={attraction.name} attractionLocation={attraction.location} isSelected={!!viewingAccom && selectedAccom === viewingAccom.id} onClose={() => setViewingAccom(null)} onSelect={() => viewingAccom && setSelectedAccom(selectedAccom === viewingAccom.id ? undefined : viewingAccom.id)} onDirections={() => viewingAccom && openAccommodationDirections(viewingAccom)}/>
     </react_native_1.View>);
 }
 const styles = react_native_1.StyleSheet.create({
@@ -185,12 +277,14 @@ const styles = react_native_1.StyleSheet.create({
     heroLocation: { fontSize: 12, color: "rgba(255,255,255,0.7)", marginTop: 3 },
     content: { paddingHorizontal: 16, paddingTop: 16, gap: 16 },
     description: { fontSize: 14, lineHeight: 20, color: theme_1.colors.charcoal, opacity: 0.75 },
+    directionsBtn: { paddingVertical: 14, paddingHorizontal: 16, borderRadius: 14, backgroundColor: theme_1.colors.savanna, alignItems: "center" },
+    directionsBtnText: { fontSize: 14, fontFamily: theme_1.fonts.bodySemiBold, color: theme_1.colors.ivory },
     tabRow: { flexDirection: "row", borderRadius: 14, overflow: "hidden", backgroundColor: theme_1.colors.ivory, borderWidth: 1, borderColor: "rgba(62,50,38,0.1)" },
     tabBtn: { flex: 1, paddingVertical: 11, alignItems: "center" },
     tabText: { fontSize: 13, fontFamily: theme_1.fonts.bodySemiBold },
     hintText: { fontSize: 11, color: theme_1.colors.charcoal, opacity: 0.5 },
     emptyHint: { fontSize: 13, color: theme_1.colors.charcoal, opacity: 0.5 },
-    hiddenHint: { fontSize: 11, color: theme_1.colors.charcoal, opacity: 0.4, paddingVertical: 8 },
+    errorHint: { fontSize: 12, lineHeight: 18, color: "#9B3328" },
     stickyCta: {
         position: "absolute",
         left: 16,

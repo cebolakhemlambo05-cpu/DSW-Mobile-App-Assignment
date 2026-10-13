@@ -11,20 +11,56 @@ npx expo start
 
 Then press `i` for iOS simulator, `a` for Android emulator, or scan the QR code with the **Expo Go** app on your phone.
 
-## Google Places API
+## API configuration
 
-The backend keeps the Google key off the device. Create `backend/.env` with:
+The backend keeps optional API keys off the device. Create `backend/.env` with:
 
 ```env
-GOOGLE_MAPS_API_KEY=your_key_here
-PORT=4000
+PORT=3001
+HOTEL_API_PROVIDER=none
+ADMIN_EMAIL=admin@yourdomain.com
+ADMIN_PASSWORD=replace_with_a_strong_unique_password
 ```
 
-Enable Places API (New) for the key. Start the API with `npm run server` from the project root, then start Expo. Attraction search calls `GET /api/attractions?query=mountains`; the backend sends that search to Google Text Search, follows up to three result pages, deduplicates by place ID, and merges matching cached places. Partial terms and aliases such as mountains, hiking, peaks, wildlife, safari, coast, beach, and museum are supported.
+Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` to your admin login credentials in `backend/.env`; do not put them in the app or share/commit that file. Restart the backend after changing credentials.
 
-Discovery results are cached for `CACHE_TTL_MS` (six hours by default). Delete `backend/.cache/places.json` while the backend is stopped if you need to force a fresh country sweep during testing.
+Start the API with `node server.js` from the project root, then start Expo. Nearby accommodations, restaurants, fuel stops, and searched attractions use OpenStreetMap; no API key or account is required. The curated attraction catalog remains available when a remote attraction search is unavailable. Live hotel offers can optionally come from Amadeus when configured.
 
-Google Places supplies attraction metadata and lodging price levels, not live nightly room rates or room types. The app labels those values as unavailable instead of treating a price level as a Rand amount. Add a hotel-content provider such as Amadeus or Booking.com later when real rates are required.
+### Firestore account and day-plan storage
+
+The API stores registered accounts, OTP challenges, and saved day plans in Cloud Firestore using the Firebase Admin SDK. Put the downloaded service-account JSON file in `backend/`; the provided `.gitignore` excludes Firebase Admin key files. Never add a service-account key to the app, share it, or commit it. If you use a different filename or location, set `FIREBASE_SERVICE_ACCOUNT_PATH` in `backend/.env` to its path relative to the project root. The service account must belong to the same Firebase project where you created Firestore. The backend requires Node.js 22 or newer.
+
+To import the existing `data/app-data.json` records, run this once from the project root:
+
+```bash
+npm run migrate:firestore
+```
+
+The migration writes accounts to `plannerUsers`, pending registration OTPs to `plannerRegistrationChallenges`, and a completion marker to `plannerMetadata`. It leaves the original JSON file unchanged and refuses to repeat a completed migration unless `--force` is explicitly provided. After a successful migration, start the backend with `npm run server`. The Firestore Admin SDK bypasses Firestore security rules; the app uses the backend API rather than direct client database access.
+
+The admin console includes user search and filters, 7/30-day registration and plan-save trends, API/Firestore reachability checks, and a CSV export limited to names, email addresses, nationality, join date, and saved-destination counts. Account and plan changes are recorded in the `plannerAuditEvents` collection; the console displays the latest 100 events. Audit history starts when this feature is deployed and does not reconstruct earlier changes. Event records exclude passwords, profile photos, and itinerary contents.
+
+Attraction search calls `GET /api/attractions?query=mountains` and combines OpenStreetMap/Nominatim results with the curated local attraction catalog. Search results include mapped coordinates and contributor-provided details when available, but images are representative category images and ratings and visitor information are not verified. Nominatim is a community service with strict fair-use limits; the backend serializes requests, waits at least one second between searches, and briefly caches results. Display `© OpenStreetMap contributors` attribution wherever these results are shown.
+
+The attraction detail screen queries nearby stays, restaurants, and fuel from `GET /api/nearby-places?lat=...&lng=...&category=all`. The backend posts a small-radius query to `https://overpass-api.de/api/interpreter` and retries via `https://overpass.kumi.systems/api/interpreter` if the primary public server is unavailable. Overpass results include mapped names and coordinates when contributors have recorded them; the app calculates approximate straight-line distances and can request driving routes separately. OSM does not provide dependable prices, ratings, booking availability, or photos. Public Overpass servers can be busy and enforce fair-use limits, so results are cached briefly and failures are reported. Display `© OpenStreetMap contributors` attribution wherever these results are shown.
+
+Google Routes API (`POST /api/route-distances`) can calculate driving distance and estimated time only for entries with verified coordinates. It is optional and requires a separate `GOOGLE_ROUTES_API_KEY` in `backend/.env`; this endpoint is distinct from Places API and may require Google Cloud billing. Opening Google Maps directions from the app uses a Maps URL and does not call Places API.
+
+When no hotel-offer provider is configured, accommodation cards use nearby OpenStreetMap listings with unknown prices and availability. Property details, photos, prices, ratings, and availability are shown only when provided by the configured hotel provider or mapped OSM tags. Confirm rates and availability directly with the property or a booking provider.
+
+To show live hotel offers and nightly prices, configure Amadeus credentials in `backend/.env` and set `HOTEL_API_PROVIDER=amadeus`:
+
+```env
+HOTEL_API_PROVIDER=amadeus
+HOTEL_API_KEY=your_amadeus_client_id
+HOTEL_API_SECRET=your_amadeus_client_secret
+```
+
+The hotel search currently requests rates for default dates seven and nine days from today (two nights), with two adults and one room; the backend API can accept explicit dates and occupancy, but the screen does not yet provide date or guest selectors. Prices and availability depend on Amadeus offers and may be unavailable for some properties. Keep Google and hotel-provider keys on the server. The app opens Google Maps directions with the selected accommodation name as the origin and the attraction as the destination; this uses a Maps directions link rather than requesting an in-app route from the Routes API.
+
+OpenStreetMap search results are briefly cached in memory to reduce requests to public services. Restart the backend to clear this cache.
+
+The attraction detail screen also shows a seven-day forecast for the attraction coordinates. The backend requests daily conditions from Open-Meteo; no weather API key is needed. Forecast details include daily high/low temperature, precipitation chance, and maximum wind speed.
 
 ## What changed vs. the web version
 

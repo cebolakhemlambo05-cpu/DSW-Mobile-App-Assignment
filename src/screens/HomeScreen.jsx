@@ -47,9 +47,9 @@ const BudgetSlider_1 = __importDefault(require("../components/BudgetSlider"));
 const AttractionCard_1 = __importDefault(require("../components/AttractionCard"));
 const BrandLogo_1 = __importDefault(require("../components/BrandLogo"));
 const CATEGORIES = ["All", "Wildlife", "Mountains", "City", "Coast"];
-function HomeScreen({ onSelect, onViewPlan, planCount, currentUser, onSignOut, onViewProfile, }) {
+function HomeScreen({ onSelect, onViewPlan, planCount, currentUser, onSignOut, onViewProfile, syncNotice, }) {
     const [query, setQuery] = (0, react_1.useState)("");
-  const { attractions } = (0, useAttractions_1.useAttractions)(query);
+  const { attractions, error, osmSearchActive } = (0, useAttractions_1.useAttractions)(query);
     const [budget, setBudget] = (0, react_1.useState)(2500);
     const [category, setCategory] = (0, react_1.useState)("All");
     const [localOnly, setLocalOnly] = (0, react_1.useState)(false);
@@ -78,9 +78,8 @@ function HomeScreen({ onSelect, onViewPlan, planCount, currentUser, onSignOut, o
     }, [attractions, query, budget, category, localOnly]);
     return (<react_native_1.View style={styles.screen}>
       <react_native_safe_area_context_1.SafeAreaView edges={["top"]} style={styles.header}>
-        <react_native_1.View style={styles.headerTop}>
-          <BrandLogo_1.default dark compact />
-          <react_native_1.View style={styles.userRow}>
+      <react_native_1.View style={styles.headerTop}>
+        <react_native_1.View style={styles.userRow}>
             <react_native_1.Pressable onPress={onViewProfile}>
               <react_native_1.Text style={styles.userGreeting}>
                 Hi, <react_native_1.Text style={styles.userName}>{currentUser?.firstName || currentUser}</react_native_1.Text>
@@ -92,9 +91,12 @@ function HomeScreen({ onSelect, onViewPlan, planCount, currentUser, onSignOut, o
           </react_native_1.View>
         </react_native_1.View>
         <react_native_1.View style={styles.discoverRow}>
-          <react_native_1.View>
+          <react_native_1.View style={styles.discoverBrand}>
+            <BrandLogo_1.default dark compact circle />
+            <react_native_1.View>
             <react_native_1.Text style={styles.discoverLabel}>Discover</react_native_1.Text>
             <react_native_1.Text style={styles.discoverTitle}>South Africa</react_native_1.Text>
+            </react_native_1.View>
           </react_native_1.View>
           <react_native_1.Pressable onPress={onViewPlan} style={styles.planBtn}>
             <Icons_1.IconCalendar color={theme_1.colors.ivory}/>
@@ -113,6 +115,9 @@ function HomeScreen({ onSelect, onViewPlan, planCount, currentUser, onSignOut, o
               </react_native_1.View>
               <react_native_1.TextInput value={query} onChangeText={setQuery} placeholder='Search by vibe — "wildlife", "mountains", "Cape Town"…' placeholderTextColor="rgba(62,50,38,0.4)" style={styles.searchInput}/>
             </react_native_1.View>
+            {error && <react_native_1.Text style={styles.searchError}>Online attraction search is unavailable. Showing saved attractions. {error.message}</react_native_1.Text>}
+            {!!syncNotice && <react_native_1.Text style={styles.syncNotice}>{syncNotice}</react_native_1.Text>}
+            {osmSearchActive && <react_native_1.Text style={styles.searchAttribution}>Search data © OpenStreetMap contributors</react_native_1.Text>}
 
             <BudgetSlider_1.default value={budget} onChange={setBudget} sublabel="Accommodation is filtered to match"/>
 
@@ -149,7 +154,7 @@ function HomeScreen({ onSelect, onViewPlan, planCount, currentUser, onSignOut, o
 const styles = react_native_1.StyleSheet.create({
     screen: { flex: 1, backgroundColor: theme_1.colors.sand },
     header: { backgroundColor: theme_1.colors.savanna, paddingHorizontal: 20, paddingTop: 4, paddingBottom: 12 },
-    headerTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
+    headerTop: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", marginBottom: 8 },
     brandRow: { flexDirection: "row", alignItems: "center", gap: 8 },
     brandIcon: { width: 24, height: 24, borderRadius: 6, backgroundColor: theme_1.colors.terra, alignItems: "center", justifyContent: "center" },
     brandLabel: { fontSize: 10, fontFamily: theme_1.fonts.bodyBold, letterSpacing: 2, textTransform: "uppercase", color: "rgba(232,220,196,0.8)" },
@@ -159,6 +164,7 @@ const styles = react_native_1.StyleSheet.create({
     signOutBtn: { paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8, backgroundColor: "rgba(255,255,255,0.1)" },
     signOutText: { fontSize: 11, color: "rgba(232,220,196,0.7)" },
     discoverRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    discoverBrand: { flexDirection: "row", alignItems: "center", gap: 10 },
     discoverLabel: { fontSize: 10, fontFamily: theme_1.fonts.bodySemiBold, letterSpacing: 1.5, textTransform: "uppercase", color: "rgba(232,220,196,0.5)" },
     discoverTitle: { fontSize: 20, fontFamily: theme_1.fonts.display, color: theme_1.colors.ivory, marginTop: 2 },
     planBtn: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.1)" },
@@ -179,6 +185,9 @@ const styles = react_native_1.StyleSheet.create({
         backgroundColor: theme_1.colors.ivory,
         color: theme_1.colors.charcoal,
     },
+    searchError: { fontSize: 11, lineHeight: 16, color: theme_1.colors.terra },
+    syncNotice: { fontSize: 11, lineHeight: 16, color: theme_1.colors.sky },
+    searchAttribution: { fontSize: 10, lineHeight: 14, color: theme_1.colors.charcoal, opacity: 0.6 },
     chipsRow: {},
     chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999 },
     chipText: { fontSize: 12, fontFamily: theme_1.fonts.bodySemiBold },

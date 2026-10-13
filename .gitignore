@@ -18,6 +18,8 @@
 # Dependencies
 node_modules/
 backend/.cache/
+backend/*firebase-adminsdk*.json
+backend/*service-account*.json
 
 # Expo / build output
 .expo/

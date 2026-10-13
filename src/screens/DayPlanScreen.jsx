@@ -119,7 +119,7 @@ function DayPlanScreen({ plan, onBack, onRemove, onClearAll, onSelectAttraction,
                       {entry.accommodation && (<react_native_1.View style={styles.lineRow}>
                           <react_native_1.Text style={styles.lineLabel}>🛏 {entry.accommodation.name}</react_native_1.Text>
                           <react_native_1.Text style={styles.lineValue}>
-                            {(0, format_1.fmt)(entry.accommodation.price)}
+                            {(0, format_1.fmt)(entry.accommodation.price, entry.accommodation.currency)}
                             <react_native_1.Text style={styles.lineUnit}>/night</react_native_1.Text>
                           </react_native_1.Text>
                         </react_native_1.View>)}
