@@ -1,0 +1,124 @@
+{
+  "users": [
+    {
+      "id": "0975cba2-790a-429c-b5eb-442b8c8c7a32",
+      "firstName": "Noxolo",
+      "lastName": "Madlala",
+      "email": "noxolomadlala10@gmail.com",
+      "nationality": "South Africa",
+      "passwordHash": "69edfc57995e4ad0610b4c4e88b76a64:a45bc7b7586cccdd83ebf064bca0f360480894dcc0c6e09a4da8f8ca02a5c3727c3fd06d07145bb588272555c13019d17e9ebd4cc4a5951a3a304a0a3e1584e3",
+      "createdAt": "2026-09-14T19:55:34.902Z",
+      "dayPlan": [
+        {
+          "attractionId": 3,
+          "attractionName": "Soweto Township",
+          "attractionLocation": "Johannesburg, Gauteng, South Africa",
+          "attractionImage": "https://upload.wikimedia.org/wikipedia/commons/f/f4/Soweto-002.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=original",
+          "accommodation": {
+            "id": "soweto-lodge",
+            "name": "Soweto Lodge",
+            "price": 650
+          },
+          "activities": []
+        },
+        {
+          "attractionId": 1,
+          "attractionName": "Kruger National Park",
+          "attractionLocation": "Limpopo & Mpumalanga, South Africa",
+          "attractionImage": "https://upload.wikimedia.org/wikipedia/commons/f/f0/Kruger_Zebra.JPG?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=original",
+          "latitude": -23.9884,
+          "longitude": 31.5547,
+          "accommodation": {
+            "id": "kruger-letaba",
+            "name": "Letaba Rest Camp",
+            "price": 850
+          },
+          "activities": []
+        },
+        {
+          "attractionId": 42,
+          "attractionName": "Durban Golden Mile",
+          "attractionLocation": "Durban, KwaZulu-Natal, South Africa",
+          "attractionImage": "https://upload.wikimedia.org/wikipedia/commons/b/b8/The_sun_set_of_GOLDEN_MILE.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=original",
+          "latitude": -29.8587,
+          "longitude": 31.0218,
+          "accommodation": {
+            "id": "durban-golden-mile-hotel",
+            "name": "Golden Mile Beachfront Hotel",
+            "price": 1200
+          },
+          "activities": [
+            {
+              "id": "durban-beach",
+              "name": "Beach Visit",
+              "price": 0
+            }
+          ]
+        },
+        {
+          "attractionId": 2,
+          "attractionName": "Table Mountain",
+          "attractionLocation": "Cape Town, Western Cape, South Africa",
+          "attractionImage": "https://upload.wikimedia.org/wikipedia/commons/d/dc/Table_Mountain_DanieVDM.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=original",
+          "latitude": -33.9628,
+          "longitude": 18.4098,
+          "accommodation": {
+            "id": "table-smitswinkel",
+            "name": "Smitswinkel Tented Camp",
+            "price": 965
+          },
+          "activities": []
+        },
+        {
+          "attractionId": 9,
+          "attractionName": "iSimangaliso Wetland Park",
+          "attractionLocation": "KwaZulu-Natal, South Africa",
+          "attractionImage": "https://upload.wikimedia.org/wikipedia/commons/0/03/GreaterStLucia.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=original",
+          "latitude": -28.377,
+          "longitude": 32.41,
+          "accommodation": {
+            "id": "isimangaliso-stlucia",
+            "name": "St Lucia Safari Lodge",
+            "price": 1000
+          },
+          "activities": []
+        }
+      ]
+    }
+  ],
+  "registrationChallenges": [
+    {
+      "firstName": "Test",
+      "lastName": "User",
+      "email": "codex-smoke-20260914@example.com",
+      "nationality": "South Africa",
+      "passwordHash": "0ab18a009aff63b6dd92e09ee3951687:20d0c63690c7dbfd5aa2eb916c0e1bbcccf5954e8f828621b4da3f0d714462967fca59999718912214200cb8d170ab8256dc6b4ab07cb3251197f200eef101e0",
+      "otpHash": "2bace2d2642cc8951c446023c705c9fd29333d6d897c1f7ae8fa44677f169a81",
+      "challengeHash": "4178cf04a6204ae2cd53f6787fcc3938ef4dbd4b005d0c9aad32e8f427852946",
+      "expiresAt": "2026-09-14T19:36:23.946Z",
+      "attempts": 0
+    },
+    {
+      "firstName": "Test",
+      "lastName": "User",
+      "email": "codex-smoke-20260914b@example.com",
+      "nationality": "South Africa",
+      "passwordHash": "42553ecdefe2cb0a954a9525e143856d:1a8d343f0f9b1c00f7d888a93c5691fb9ad94231c3a76a244f00b24312cad0fcadecf7af5e72e6e59a744cb5ad04a2c1e917a0a279651cb548f5e5a4a429c0b8",
+      "otpHash": "0452da6733c959731cb1013b3bffc817dbf3583522eb3864bce04ba24bf73e45",
+      "challengeHash": "7fc0ab23ed6f934cd3a91f9bf56bc3a663b57198ba7ede3a9731093e34e80aaa",
+      "expiresAt": "2026-09-14T19:36:36.422Z",
+      "attempts": 0
+    },
+    {
+      "firstName": "Test",
+      "lastName": "User",
+      "email": "codex-smoke-20260914c@example.com",
+      "nationality": "South Africa",
+      "passwordHash": "03d97c88a15dbf9906db8ed550c23bad:aeec434a8b39fd7f08801511a897b1940f510bb96dd8604c3353cb0208c61462f6d173e0bf0e1633623d0cba73e8360a1628e2827de7fc9352a39d4c7b2d2306",
+      "otpHash": "7d110d17e203550e41d554e55720ef2fe773bb90e61b56cdbf9b8f9b4b05e56b",
+      "challengeHash": "fce23656ab55e45a1e830c49b2e57a7793215dfcca7bb21a520f7971d302a805",
+      "expiresAt": "2026-09-14T19:37:40.548Z",
+      "attempts": 0
+    }
+  ]
+}

@@ -97,7 +97,6 @@ export default function RegisterScreen({
   const [agreed, setAgreed] = useState(false);
   const [step, setStep] = useState(1);
   const [otp, setOtp] = useState('');
-  const [devOtp, setDevOtp] = useState('');
   const [challengeToken, setChallengeToken] = useState('');
 
   const redirectExistingAccountToLogin = () => {
@@ -199,7 +198,6 @@ export default function RegisterScreen({
       if (result.otpRequired) {
         setChallengeToken(result.challengeToken);
         setEmail(result.email || email);
-        setDevOtp(result.devOtp || '');
         setOtp('');
         setErrors({});
         setStep(3);
@@ -603,15 +601,8 @@ export default function RegisterScreen({
                 <Text style={styles.formError}>{errors.form}</Text>
               )}
               <Text style={styles.otpMessage}>
-                {devOtp
-                  ? `Email sending is not configured yet. Use the local test code for ${email}.`
-                  : `We sent a one-time code to ${email}.`}
+                We sent a one-time code to {email}.
               </Text>
-              {!!devOtp && (
-                <Text style={styles.devOtpText}>
-                  Local test code: {devOtp}
-                </Text>
-              )}
               <Field
                 label="Security code"
                 value={otp}
@@ -689,7 +680,6 @@ const styles = StyleSheet.create({
   errorText: { fontSize: 11, color: colors.terra },
   formError: { fontSize: 12, lineHeight: 17, color: colors.terra, textAlign: "center", backgroundColor: "rgba(201,123,74,0.1)", borderRadius: 10, padding: 10 },
   otpMessage: { fontSize: 13, lineHeight: 19, color: colors.charcoal, opacity: 0.68, textAlign: "center" },
-  devOtpText: { fontSize: 13, lineHeight: 19, color: colors.savanna, textAlign: "center", fontFamily: fonts.bodySemiBold },
   resendWrap: { alignItems: "center", paddingVertical: 8 },
   forgotText: { fontSize: 12, fontFamily: fonts.bodySemiBold, color: colors.sky },
   termsBox: { flexDirection: "row", alignItems: "flex-start", gap: 10, borderRadius: 12, padding: 12, borderWidth: 1.5 },

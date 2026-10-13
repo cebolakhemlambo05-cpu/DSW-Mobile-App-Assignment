@@ -10,6 +10,7 @@ dotenv.config({ path: path.join(__dirname, 'backend', '.env') });
 const app = express();
 const PORT = process.env.PORT || 3001;
 const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY;
+const GOOGLE_CLOUD_VISION_API_KEY = process.env.GOOGLE_CLOUD_VISION_API_KEY || '';
 const HOTEL_API_PROVIDER = process.env.HOTEL_API_PROVIDER || 'none';
 const HOTEL_API_KEY = process.env.HOTEL_API_KEY || '';
 const HOTEL_API_SECRET = process.env.HOTEL_API_SECRET || '';
@@ -31,7 +32,13 @@ const AMADEUS_AUTH_URL =
 let amadeusToken = null;
 
 app.use(cors());
-app.use(express.json({ limit: '32kb' }));
+app.use(express.json({ limit: '8mb' }));
+app.use((error, _req, res, next) => {
+  if (error instanceof SyntaxError && error.status === 400 && 'body' in error) {
+    return res.status(400).json({ errors: { form: 'Request body must be valid JSON.' } });
+  }
+  return next(error);
+});
 
 // Log every request so you can see in the terminal whether the phone is even reaching this server.
 app.use((req, _res, next) => {
@@ -41,6 +48,81 @@ app.use((req, _res, next) => {
 
 const BASE_PLACE_URL = 'https://maps.googleapis.com/maps/api/place';
 const APP_DATA_FILE = path.join(__dirname, 'data', 'app-data.json');
+
+const LOCAL_ATTRACTIONS = [
+  {
+    id: 1,
+    name: 'Kruger National Park',
+    location: 'Limpopo & Mpumalanga, South Africa',
+    description:
+      "One of Africa's best-known wildlife reserves, known for safaris and biodiversity.",
+    latitude: -23.9884,
+    longitude: 31.5547,
+    category: 'Wildlife',
+    facts: [
+      'Kruger was proclaimed in 1898 as the Sabie Game Reserve before becoming a national park in 1926.',
+      'The park protects archaeological sites including Masorini and Thulamela.',
+    ],
+    visitorInfo:
+      'Book gates, camps and guided drives in advance during peak holiday periods.',
+  },
+  {
+    id: 2,
+    name: 'Table Mountain',
+    location: 'Cape Town, Western Cape, South Africa',
+    description:
+      "Cape Town's flat-topped landmark offers hikes, cableway access and city views.",
+    latitude: -33.9628,
+    longitude: 18.4098,
+    category: 'Mountains',
+    facts: [
+      'Table Mountain is part of a national park and the Cape Floristic Region World Heritage Site.',
+      'The aerial cableway opened in 1929.',
+    ],
+    visitorInfo:
+      'Check cableway weather closures before travelling; conditions can change quickly.',
+  },
+  {
+    id: 3,
+    name: 'Soweto Township',
+    location: 'Johannesburg, Gauteng, South Africa',
+    description:
+      'A culturally significant Johannesburg area known for Vilakazi Street, museums and anti-apartheid history.',
+    latitude: -26.2485,
+    longitude: 27.854,
+    category: 'City',
+    facts: [
+      'Vilakazi Street is associated with Nelson Mandela and Archbishop Desmond Tutu.',
+      'The 1976 student uprising is commemorated at the Hector Pieterson Museum.',
+    ],
+    visitorInfo: 'Use reputable guided tours for context and respectful local routing.',
+  },
+  {
+    id: 42,
+    name: 'Durban Golden Mile',
+    location: 'Durban, KwaZulu-Natal, South Africa',
+    description:
+      "Durban's beachfront promenade links swimming beaches and leisure attractions.",
+    latitude: -29.8587,
+    longitude: 31.0218,
+    category: 'Coast',
+    facts: ['The promenade has long been a central Durban leisure route.'],
+    visitorInfo: 'Swim at beaches with lifeguards and check local beach notices.',
+  },
+  {
+    id: 9,
+    name: 'iSimangaliso Wetland Park',
+    location: 'KwaZulu-Natal, South Africa',
+    description:
+      'A UNESCO-listed wetland landscape with lakes, dunes, beaches, wildlife and estuary experiences.',
+    latitude: -28.377,
+    longitude: 32.41,
+    category: 'Wildlife',
+    facts: ['iSimangaliso means miracle or wonder in isiZulu.'],
+    visitorInfo:
+      'Plan routes and park gates ahead; distances between sections can be significant.',
+  },
+];
 
 function readAppData() {
   try {
@@ -54,7 +136,17 @@ function writeAppData(data) {
   fs.mkdirSync(path.dirname(APP_DATA_FILE), { recursive: true });
   const tempFile = `${APP_DATA_FILE}.tmp`;
   fs.writeFileSync(tempFile, JSON.stringify(data, null, 2), 'utf8');
-  fs.renameSync(tempFile, APP_DATA_FILE);
+  try {
+    fs.renameSync(tempFile, APP_DATA_FILE);
+  } catch (error) {
+    if (error.code !== 'EPERM' && error.code !== 'EACCES') throw error;
+    fs.writeFileSync(APP_DATA_FILE, JSON.stringify(data, null, 2), 'utf8');
+    try {
+      fs.unlinkSync(tempFile);
+    } catch {
+      // Best-effort cleanup for OneDrive/Windows file locks.
+    }
+  }
 }
 
 function hashPassword(password, salt = crypto.randomBytes(16).toString('hex')) {
@@ -85,6 +177,18 @@ function isAdminEmail(email) {
   return String(email || '').trim().toLowerCase() === ADMIN_EMAIL;
 }
 
+function isValidEmail(value) {
+  return /^\S+@\S+\.\S+$/.test(String(value || '').trim().toLowerCase());
+}
+
+function isValidName(value) {
+  return /^[A-Za-zÀ-ÖØ-öø-ÿ.' -]{2,80}$/.test(String(value || '').replace(/\s+/g, ' ').trim());
+}
+
+function isStrongPassword(value) {
+  return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/.test(String(value || ''));
+}
+
 function getRequestOrigin(req) {
   return (
     process.env.APP_BASE_URL || req.get('origin') || 'http://localhost:8081'
@@ -109,12 +213,15 @@ function isEmailJsConfigured(templateId) {
   );
 }
 
-async function sendEmailJsTemplate({ templateId, templateParams }) {
+async function sendEmailJsTemplate({ templateId, templateParams, templateEnvName = 'template id' }) {
   if (!isEmailJsConfigured(templateId)) {
-    console.warn(
-      'EmailJS is not configured with real credentials. Skipping email send for local development.'
+    const missing = [];
+    if (isPlaceholderEnv(EMAILJS_SERVICE_ID)) missing.push('EMAILJS_SERVICE_ID');
+    if (isPlaceholderEnv(templateId)) missing.push(templateEnvName);
+    if (isPlaceholderEnv(EMAILJS_PUBLIC_KEY)) missing.push('EMAILJS_PUBLIC_KEY');
+    throw new Error(
+      `EmailJS is not configured. Add real ${missing.join(', ')} values to backend/.env and restart the server.`
     );
-    return { skipped: true };
   }
 
   const body = {
@@ -137,16 +244,17 @@ async function sendEmailJsTemplate({ templateId, templateParams }) {
   if (!response.ok) {
     const message = await response.text().catch(() => '');
     throw new Error(
-      message || 'EmailJS could not send the password reset email.'
+      message || 'EmailJS could not send the email.'
     );
   }
 
-  return { skipped: false };
+  return { ok: true };
 }
 
-async function sendPasswordResetEmail({ user, resetLink }) {
+async function sendPasswordResetEmail({ user, resetLink, resetCode }) {
   return sendEmailJsTemplate({
     templateId: EMAILJS_TEMPLATE_ID,
+    templateEnvName: 'EMAILJS_TEMPLATE_ID',
     templateParams: {
       to_email: user.email,
       user_email: user.email,
@@ -155,6 +263,10 @@ async function sendPasswordResetEmail({ user, resetLink }) {
       name: user.firstName,
       reset_link: resetLink,
       link: resetLink,
+      reset_code: resetCode,
+      passcode: resetCode,
+      otp_code: resetCode,
+      code: resetCode,
       app_name: 'ALL-IN-ONE-PLANNER',
     },
   });
@@ -170,6 +282,7 @@ async function sendLoginOtpEmail({ user, otp }) {
 
   return sendEmailJsTemplate({
     templateId: EMAILJS_OTP_TEMPLATE_ID,
+    templateEnvName: 'EMAILJS_OTP_TEMPLATE_ID',
     templateParams: {
       email: user.email,
       to_email: user.email,
@@ -195,6 +308,7 @@ async function sendRegistrationOtpEmail({ email, firstName, otp }) {
 
   return sendEmailJsTemplate({
     templateId: EMAILJS_OTP_TEMPLATE_ID,
+    templateEnvName: 'EMAILJS_OTP_TEMPLATE_ID',
     templateParams: {
       email,
       to_email: email,
@@ -221,6 +335,109 @@ function publicUser(user) {
     dayPlan: ensureUserPlan(user),
     isAdmin: isAdminEmail(user.email),
   };
+}
+
+function requireUserByEmail(req, res) {
+  const data = readAppData();
+  const email = String(req.params.email || req.body?.email || '')
+    .trim()
+    .toLowerCase();
+  const user = data.users.find((entry) => entry.email === email);
+  if (!user) {
+    res.status(404).json({ errors: { email: 'No account found.' } });
+    return {};
+  }
+  return { data, user };
+}
+
+function safeArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function safeObject(value) {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+}
+
+function userAttractionCandidates(user) {
+  const planned = safeArray(user.dayPlan).map((entry) => ({
+    id: entry.attractionId,
+    name: entry.attractionName,
+    location: entry.attractionLocation,
+    description: entry.description,
+    latitude: entry.latitude,
+    longitude: entry.longitude,
+  }));
+  const merged = [...planned, ...LOCAL_ATTRACTIONS];
+  const seen = new Set();
+  return merged.filter((item) => {
+    const key = String(item.id || item.name).toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return item.name;
+  });
+}
+
+async function detectLandmarkLabels(imageBase64) {
+  if (!GOOGLE_CLOUD_VISION_API_KEY || !imageBase64) return null;
+  const response = await fetch(
+    `https://vision.googleapis.com/v1/images:annotate?key=${encodeURIComponent(GOOGLE_CLOUD_VISION_API_KEY)}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        requests: [
+          {
+            image: { content: imageBase64 },
+            features: [
+              { type: 'LANDMARK_DETECTION', maxResults: 5 },
+              { type: 'WEB_DETECTION', maxResults: 8 },
+            ],
+          },
+        ],
+      }),
+    }
+  );
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error(
+      payload.error?.message || 'Vision recognition service failed'
+    );
+  }
+  const result = payload.responses?.[0] || {};
+  const landmarks = safeArray(result.landmarkAnnotations).map((item) => ({
+    text: item.description,
+    score: Number(item.score || 0),
+  }));
+  const webEntities = safeArray(result.webDetection?.webEntities).map((item) => ({
+    text: item.description,
+    score: Number(item.score || 0),
+  }));
+  return [...landmarks, ...webEntities].filter((item) => item.text);
+}
+
+function matchAttraction(labels, candidates) {
+  const normalizedLabels = safeArray(labels).map((item) => ({
+    ...item,
+    normalized: String(item.text || '').toLowerCase(),
+  }));
+  let best = null;
+  candidates.forEach((candidate) => {
+    const name = String(candidate.name || '').toLowerCase();
+    const location = String(candidate.location || '').toLowerCase();
+    normalizedLabels.forEach((label) => {
+      const labelText = label.normalized;
+      const direct =
+        labelText.includes(name) ||
+        name.includes(labelText) ||
+        location.includes(labelText);
+      if (!direct) return;
+      const confidence = Math.min(1, Math.max(label.score || 0.5, 0.5));
+      if (!best || confidence > best.confidence) {
+        best = { match: candidate, confidence };
+      }
+    });
+  });
+  return best;
 }
 
 function hotelApiEnabled() {
@@ -816,6 +1033,8 @@ app.get('/api/health', (_req, res) => {
     message: 'Places API server is running',
     hotelProvider: HOTEL_API_PROVIDER,
     hasGoogleKey: Boolean(GOOGLE_PLACES_API_KEY),
+    hasEmailJsPasswordReset: isEmailJsConfigured(EMAILJS_TEMPLATE_ID),
+    hasEmailJsOtp: isEmailJsConfigured(EMAILJS_OTP_TEMPLATE_ID),
   });
 });
 
@@ -1058,15 +1277,38 @@ app.listen(PORT, '0.0.0.0', () => {
 
 app.post('/api/auth/register', async (req, res) => {
   const { firstName, lastName, email, nationality, password } = req.body || {};
+  const cleanFirstName = String(firstName || '').replace(/\s+/g, ' ').trim();
+  const cleanLastName = String(lastName || '').replace(/\s+/g, ' ').trim();
   const cleanEmail = String(email || '')
     .trim()
     .toLowerCase();
+  const cleanNationality = String(nationality || '').trim();
+  const rawPassword = String(password || '');
   const data = readAppData();
-  if (!firstName || !lastName || !cleanEmail || !nationality || !password) {
+
+  const errors = {};
+  if (!cleanFirstName) errors.firstName = 'First name is required.';
+  else if (!isValidName(cleanFirstName)) {
+    errors.firstName = 'Use 2-80 letters, spaces, apostrophes, dots, or hyphens.';
+  }
+  if (!cleanLastName) errors.lastName = 'Last name is required.';
+  else if (!isValidName(cleanLastName)) {
+    errors.lastName = 'Use 2-80 letters, spaces, apostrophes, dots, or hyphens.';
+  }
+  if (!cleanEmail) errors.email = 'Email is required.';
+  else if (!isValidEmail(cleanEmail)) errors.email = 'Enter a valid email address.';
+  if (!cleanNationality) errors.nationality = 'Please select your nationality.';
+  if (!rawPassword) errors.password = 'Password is required.';
+  else if (!isStrongPassword(rawPassword) || rawPassword.length > 128) {
+    errors.password = 'Use 8+ characters with upper/lowercase, a number, and a symbol.';
+  }
+
+  if (Object.keys(errors).length > 0) {
     return res
       .status(400)
-      .json({ errors: { form: 'All account fields are required.' } });
+      .json({ errors });
   }
+
   if (data.users.some((user) => user.email === cleanEmail)) {
     return res
       .status(409)
@@ -1079,11 +1321,11 @@ app.post('/api/auth/register', async (req, res) => {
   const otp = String(crypto.randomInt(100000, 1000000));
   const challengeToken = crypto.randomBytes(24).toString('hex');
   const registrationChallenge = {
-    firstName: String(firstName).trim(),
-    lastName: String(lastName).trim(),
+    firstName: cleanFirstName,
+    lastName: cleanLastName,
     email: cleanEmail,
-    nationality: String(nationality).trim(),
-    passwordHash: hashPassword(String(password)),
+    nationality: cleanNationality,
+    passwordHash: hashPassword(rawPassword),
     otpHash: hashToken(otp),
     challengeHash: hashToken(challengeToken),
     expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
@@ -1095,7 +1337,7 @@ app.post('/api/auth/register', async (req, res) => {
   data.registrationChallenges.push(registrationChallenge);
 
   try {
-    const emailResult = await sendRegistrationOtpEmail({
+    await sendRegistrationOtpEmail({
       email: cleanEmail,
       firstName: registrationChallenge.firstName,
       otp,
@@ -1105,7 +1347,6 @@ app.post('/api/auth/register', async (req, res) => {
       otpRequired: true,
       challengeToken,
       email: cleanEmail,
-      ...(emailResult?.skipped ? { devOtp: otp } : {}),
     });
   } catch (error) {
     data.registrationChallenges = data.registrationChallenges.filter(
@@ -1241,12 +1482,11 @@ app.post("/api/auth/login", async (req, res) => {
   writeAppData(data);
 
   try {
-    const emailResult = await sendLoginOtpEmail({ user, otp });
+    await sendLoginOtpEmail({ user, otp });
     return res.json({
       otpRequired: true,
       challengeToken,
       email: cleanEmail,
-      ...(emailResult?.skipped ? { devOtp: otp } : {}),
     });
   } catch (error) {
     user.loginOtpHash = undefined;
@@ -1384,6 +1624,102 @@ app.delete('/api/users/:email/plan/:attractionId', (req, res) => {
   return res.json({ plan: user.dayPlan });
 });
 
+app.post('/api/travel-lens/identify', async (req, res) => {
+  try {
+    const { data, user } = requireUserByEmail(req, res);
+    if (!user) return;
+    const imageBase64 = String(req.body?.imageBase64 || '');
+    if (!imageBase64) {
+      return res.status(400).json({ error: 'An image capture is required.' });
+    }
+    const candidates = userAttractionCandidates(user);
+    if (!GOOGLE_CLOUD_VISION_API_KEY) {
+      return res.json({
+        status: 'service_unavailable',
+        message:
+          'Landmark recognition is not configured. Add GOOGLE_CLOUD_VISION_API_KEY to backend/.env to enable image recognition.',
+        possibleMatches: candidates.slice(0, 5),
+      });
+    }
+    const labels = await detectLandmarkLabels(imageBase64);
+    const best = matchAttraction(labels, candidates);
+    if (best && best.confidence >= 0.65) {
+      return res.json({
+        status: 'identified',
+        match: best.match,
+        confidence: best.confidence,
+        labels: labels.slice(0, 5),
+      });
+    }
+    return res.json({
+      status: 'low_confidence',
+      message:
+        'Recognition confidence was low, so no landmark was guessed. Review the possible matches instead.',
+      confidence: best?.confidence || 0,
+      possibleMatches: candidates.slice(0, 5),
+      labels: safeArray(labels).slice(0, 5),
+    });
+  } catch (error) {
+    return res.status(502).json({
+      error: error.message || 'Landmark recognition failed.',
+    });
+  }
+});
+
+app.get('/api/users/:email/expense-groups', (req, res) => {
+  const { user } = requireUserByEmail(req, res);
+  if (!user) return;
+  return res.json({ groups: safeArray(user.expenseGroups) });
+});
+
+app.put('/api/users/:email/expense-groups', (req, res) => {
+  const { data, user } = requireUserByEmail(req, res);
+  if (!user) return;
+  if (!Array.isArray(req.body?.groups)) {
+    return res.status(400).json({ errors: { groups: 'Groups must be an array.' } });
+  }
+  user.expenseGroups = req.body.groups.slice(0, 50);
+  writeAppData(data);
+  return res.json({ groups: user.expenseGroups });
+});
+
+app.get('/api/users/:email/packing-lists', (req, res) => {
+  const { user } = requireUserByEmail(req, res);
+  if (!user) return;
+  return res.json({ lists: safeObject(user.packingLists) });
+});
+
+app.put('/api/users/:email/packing-lists', (req, res) => {
+  const { data, user } = requireUserByEmail(req, res);
+  if (!user) return;
+  user.packingLists = safeObject(req.body?.lists);
+  writeAppData(data);
+  return res.json({ lists: user.packingLists });
+});
+
+app.get('/api/users/:email/eco-profile', (req, res) => {
+  const { user } = requireUserByEmail(req, res);
+  if (!user) return;
+  return res.json({
+    profile: {
+      choices: safeArray(user.ecoProfile?.choices),
+      points: Number(user.ecoProfile?.points || 0),
+    },
+  });
+});
+
+app.put('/api/users/:email/eco-profile', (req, res) => {
+  const { data, user } = requireUserByEmail(req, res);
+  if (!user) return;
+  const profile = safeObject(req.body?.profile);
+  user.ecoProfile = {
+    choices: safeArray(profile.choices).slice(-200),
+    points: Math.max(0, Number(profile.points || 0)),
+  };
+  writeAppData(data);
+  return res.json({ profile: user.ecoProfile });
+});
+
 app.get('/api/admin/users', (req, res) => {
   if (!requireAdmin(req, res)) return;
   const data = readAppData();
@@ -1427,21 +1763,25 @@ app.post("/api/auth/request-password-reset", async (req, res) => {
   }
 
   const token = crypto.randomBytes(32).toString("hex");
+  const resetCode = String(crypto.randomInt(100000, 1000000));
   user.resetPasswordTokenHash = hashToken(token);
+  user.resetPasswordCodeHash = hashToken(resetCode);
   user.resetPasswordExpiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+  user.resetPasswordAttempts = 0;
   writeAppData(data);
 
   const resetLink = `${getRequestOrigin(req).replace(/\/$/, "")}/?resetToken=${encodeURIComponent(token)}&email=${encodeURIComponent(cleanEmail)}`;
 
   try {
-    const emailResult = await sendPasswordResetEmail({ user, resetLink });
+    await sendPasswordResetEmail({ user, resetLink, resetCode });
     return res.json({
       ok: true,
-      ...(emailResult?.skipped ? { devResetLink: resetLink } : {}),
     });
   } catch (error) {
     user.resetPasswordTokenHash = undefined;
+    user.resetPasswordCodeHash = undefined;
     user.resetPasswordExpiresAt = undefined;
+    user.resetPasswordAttempts = undefined;
     writeAppData(data);
     return res.status(500).json({ errors: { form: error.message || "Could not send the password reset email." } });
   }
@@ -1451,21 +1791,39 @@ app.post("/api/auth/reset-password", (req, res) => {
   const cleanEmail = String(req.body?.email || "").trim().toLowerCase();
   const password = String(req.body?.password || "");
   const token = String(req.body?.token || "");
+  const resetCode = String(req.body?.resetCode || "").replace(/\D/g, "");
   const data = readAppData();
   const user = data.users.find((entry) => entry.email === cleanEmail);
   if (!user) return res.status(404).json({ errors: { email: "No account found with this email address." } });
-
-  if (!token || !user.resetPasswordTokenHash || hashToken(token) !== user.resetPasswordTokenHash) {
-    return res.status(400).json({ errors: { form: "This password reset link is invalid. Request a new reset link." } });
-  }
 
   if (!user.resetPasswordExpiresAt || Date.now() > new Date(user.resetPasswordExpiresAt).getTime()) {
     return res.status(400).json({ errors: { form: "This password reset link has expired. Request a new reset link." } });
   }
 
+  if (Number(user.resetPasswordAttempts || 0) >= 5) {
+    return res.status(429).json({ errors: { form: "Too many incorrect reset attempts. Request a new reset link." } });
+  }
+
+  const tokenMatches =
+    token &&
+    user.resetPasswordTokenHash &&
+    hashToken(token) === user.resetPasswordTokenHash;
+  const codeMatches =
+    /^\d{6}$/.test(resetCode) &&
+    user.resetPasswordCodeHash &&
+    hashToken(resetCode) === user.resetPasswordCodeHash;
+
+  if (!tokenMatches && !codeMatches) {
+    user.resetPasswordAttempts = Number(user.resetPasswordAttempts || 0) + 1;
+    writeAppData(data);
+    return res.status(400).json({ errors: { form: "This password reset code or link is invalid. Request a new reset email." } });
+  }
+
   user.passwordHash = hashPassword(password);
   user.resetPasswordTokenHash = undefined;
+  user.resetPasswordCodeHash = undefined;
   user.resetPasswordExpiresAt = undefined;
+  user.resetPasswordAttempts = undefined;
   writeAppData(data);
   return res.json({ user: publicUser(user) });
 });

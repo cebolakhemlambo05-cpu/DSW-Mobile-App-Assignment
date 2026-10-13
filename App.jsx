@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { ActivityIndicator, View, StyleSheet } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { ActivityIndicator, AppState, Modal, PanResponder, Pressable, Text, View, StyleSheet } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import {
@@ -39,6 +39,13 @@ import PrivacyScreen from './src/screens/PrivacyScreen';
 import AboutScreen from './src/screens/AboutScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import AdminScreen from './src/screens/AdminScreen';
+import TravelLensScreen from './src/screens/TravelLensScreen';
+import ExpenseSplitterScreen from './src/screens/ExpenseSplitterScreen';
+import PackingAssistantScreen from './src/screens/PackingAssistantScreen';
+import EcoTravelScreen from './src/screens/EcoTravelScreen';
+
+const SESSION_TIMEOUT_MS = 10 * 60 * 1000;
+const SESSION_WARNING_MS = 60 * 1000;
 
 export default function App() {
   const [frauncesLoaded] = useFraunces({
@@ -59,6 +66,81 @@ export default function App() {
   const [screen, setScreen] = useState('home');
   const [selectedAttraction, setSelectedAttraction] = useState(null);
   const [dayPlan, setDayPlan] = useState([]);
+  const [sessionWarning, setSessionWarning] = useState(false);
+  const lastActivityRef = useRef(Date.now());
+  const timeoutRef = useRef(null);
+  const warningRef = useRef(null);
+  const appStateRef = useRef(AppState.currentState);
+
+  const clearSessionTimers = () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    if (warningRef.current) clearTimeout(warningRef.current);
+  };
+
+  const performLogout = async () => {
+    clearSessionTimers();
+    setSessionWarning(false);
+    if (currentUser?.email) {
+      await saveUserPlan(currentUser.email, dayPlan).catch(console.error);
+    }
+    setCurrentUser(null);
+    setSelectedAttraction(null);
+    setDayPlan([]);
+    setAuthMode('landing');
+    setScreen('home');
+  };
+
+  const scheduleSessionTimers = () => {
+    clearSessionTimers();
+    if (!currentUser) return;
+    const elapsed = Date.now() - lastActivityRef.current;
+    const warningDelay = Math.max(0, SESSION_TIMEOUT_MS - SESSION_WARNING_MS - elapsed);
+    const logoutDelay = Math.max(0, SESSION_TIMEOUT_MS - elapsed);
+    warningRef.current = setTimeout(() => setSessionWarning(true), warningDelay);
+    timeoutRef.current = setTimeout(() => performLogout(), logoutDelay);
+  };
+
+  const recordActivity = () => {
+    if (!currentUser) return;
+    lastActivityRef.current = Date.now();
+    if (sessionWarning) setSessionWarning(false);
+    scheduleSessionTimers();
+  };
+
+  const interactionResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponderCapture: () => {
+        recordActivity();
+        return false;
+      },
+      onMoveShouldSetPanResponderCapture: () => {
+        recordActivity();
+        return false;
+      },
+    })
+  ).current;
+
+  useEffect(() => {
+    lastActivityRef.current = Date.now();
+    scheduleSessionTimers();
+    return clearSessionTimers;
+  }, [currentUser]);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (nextState) => {
+      const wasBackground = /inactive|background/.test(appStateRef.current);
+      appStateRef.current = nextState;
+      if (!currentUser) return;
+      if (nextState === 'active' && wasBackground) {
+        if (Date.now() - lastActivityRef.current >= SESSION_TIMEOUT_MS) {
+          performLogout();
+        } else {
+          scheduleSessionTimers();
+        }
+      }
+    });
+    return () => sub.remove();
+  }, [currentUser, dayPlan]);
 
   if (!frauncesLoaded || !outfitLoaded) {
     return (
@@ -132,7 +214,6 @@ export default function App() {
         otpRequired: true,
         email: result.email,
         challengeToken: result.challengeToken,
-        devOtp: result.devOtp,
       };
     } catch (error) {
       return { ok: false, errors: error.errors || { form: error.message } };
@@ -197,7 +278,6 @@ export default function App() {
         otpRequired: true,
         email: result.email,
         challengeToken: result.challengeToken,
-        devOtp: result.devOtp,
       };
     } catch (error) {
       return { ok: false, errors: error.errors || { form: error.message } };
@@ -248,7 +328,7 @@ export default function App() {
     }
   };
 
-  const handleResetPassword = async (email, newPassword, token) => {
+  const handleResetPassword = async (email, newPassword, token, resetCode) => {
     const cleanEmail = normalizeEmail(email);
 
     if (!validateEmail(cleanEmail)) {
@@ -270,6 +350,7 @@ export default function App() {
         email: cleanEmail,
         password: newPassword,
         token,
+        resetCode,
       });
       return { ok: true, userName: user.firstName };
     } catch (error) {
@@ -309,7 +390,7 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <StatusBar style="light" />
-      <View style={styles.root}>
+      <View style={styles.root} {...interactionResponder.panHandlers}>
         {!currentUser ? (
           <>
             {authMode === 'landing' && (
@@ -388,13 +469,12 @@ export default function App() {
                   setScreen('home');
                 }}
                 onSignOut={async () => {
-                  if (currentUser?.email) {
-                    await saveUserPlan(currentUser.email, dayPlan).catch(console.error);
-                  }
-                  setCurrentUser(null);
-                  setAuthMode('landing');
-                  setScreen('home');
+                  await performLogout();
                 }}
+                onTravelLens={() => setScreen('travelLens')}
+                onExpenses={() => setScreen('expenses')}
+                onPacking={() => setScreen('packing')}
+                onEco={() => setScreen('eco')}
               />
             )}
             {screen === 'attraction' && selectedAttraction && (
@@ -416,6 +496,35 @@ export default function App() {
                 }
                 onClearAll={() => updatePlan([])}
                 onSelectAttraction={selectAttraction}
+              />
+            )}
+            {screen === 'travelLens' && (
+              <TravelLensScreen
+                user={currentUser}
+                onBack={() => setScreen('home')}
+                onSelectAttraction={(attraction) => {
+                  setSelectedAttraction(attraction);
+                  setScreen('attraction');
+                }}
+              />
+            )}
+            {screen === 'expenses' && (
+              <ExpenseSplitterScreen
+                user={currentUser}
+                onBack={() => setScreen('home')}
+              />
+            )}
+            {screen === 'packing' && (
+              <PackingAssistantScreen
+                user={currentUser}
+                plan={dayPlan}
+                onBack={() => setScreen('home')}
+              />
+            )}
+            {screen === 'eco' && (
+              <EcoTravelScreen
+                user={currentUser}
+                onBack={() => setScreen('home')}
               />
             )}
             {screen === 'privacy' && (
@@ -462,6 +571,24 @@ export default function App() {
             )}
           </>
         )}
+        <Modal visible={sessionWarning} transparent animationType="fade">
+          <View style={styles.modalBackdrop}>
+            <View style={styles.sessionCard}>
+              <Text style={styles.sessionTitle}>Session expiring soon</Text>
+              <Text style={styles.sessionText}>
+                You will be signed out after 10 minutes of inactivity.
+              </Text>
+              <View style={styles.sessionActions}>
+                <Pressable onPress={performLogout} style={styles.sessionSecondary}>
+                  <Text style={styles.sessionSecondaryText}>Sign out</Text>
+                </Pressable>
+                <Pressable onPress={recordActivity} style={styles.sessionPrimary}>
+                  <Text style={styles.sessionPrimaryText}>Stay signed in</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </View>
     </SafeAreaProvider>
   );
@@ -470,6 +597,44 @@ export default function App() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.sand },
   loading: { flex: 1, backgroundColor: colors.sand },
+  modalBackdrop: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  sessionCard: {
+    width: '100%',
+    maxWidth: 420,
+    borderRadius: 20,
+    padding: 20,
+    backgroundColor: colors.ivory,
+    gap: 12,
+  },
+  sessionTitle: {
+    fontFamily: 'Fraunces_700Bold',
+    fontSize: 22,
+    color: colors.charcoal,
+  },
+  sessionText: { color: colors.charcoal, opacity: 0.68, lineHeight: 20 },
+  sessionActions: { flexDirection: 'row', gap: 10 },
+  sessionSecondary: {
+    flex: 1,
+    padding: 13,
+    borderRadius: 14,
+    alignItems: 'center',
+    backgroundColor: colors.sand,
+  },
+  sessionPrimary: {
+    flex: 1.4,
+    padding: 13,
+    borderRadius: 14,
+    alignItems: 'center',
+    backgroundColor: colors.savanna,
+  },
+  sessionSecondaryText: { color: colors.charcoal, fontWeight: '700' },
+  sessionPrimaryText: { color: colors.ivory, fontWeight: '700' },
 });
 
 function getInitialResetParams() {

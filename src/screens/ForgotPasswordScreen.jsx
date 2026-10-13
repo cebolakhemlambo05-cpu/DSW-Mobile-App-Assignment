@@ -22,13 +22,16 @@ const AUTH_BACKGROUND =
 
 export default function ForgotPasswordScreen({ initialEmail = "", resetToken = "", onRequestReset, onResetPassword, onBack, onLogin }) {
   const [email, setEmail] = useState(initialEmail);
+  const [resetCode, setResetCode] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [resetRequested, setResetRequested] = useState(false);
   const [showPw, setShowPw] = useState(false);
   const isResetLink = Boolean(resetToken);
+  const isResetMode = isResetLink || resetRequested;
 
   const validateEmailRequest = () => {
     const nextErrors = {};
@@ -44,6 +47,10 @@ export default function ForgotPasswordScreen({ initialEmail = "", resetToken = "
 
   const validatePasswordReset = () => {
     const nextErrors = validateEmailRequest();
+
+    if (!isResetLink && !/^\d{6}$/.test(resetCode)) {
+      nextErrors.resetCode = "Enter the 6-digit reset code sent to your email";
+    }
 
     if (!password) {
       nextErrors.password = "New password is required";
@@ -75,7 +82,7 @@ export default function ForgotPasswordScreen({ initialEmail = "", resetToken = "
         setErrors(result.errors || {});
         return;
       }
-      setSubmitted(true);
+      setResetRequested(true);
       setErrors({});
     } catch (error) {
       setLoading(false);
@@ -92,7 +99,7 @@ export default function ForgotPasswordScreen({ initialEmail = "", resetToken = "
 
     setLoading(true);
     try {
-      const result = await onResetPassword(email, password, resetToken);
+      const result = await onResetPassword(email, password, resetToken, resetCode);
       setLoading(false);
       if (!result.ok) {
         setErrors(result.errors || {});
@@ -110,7 +117,7 @@ export default function ForgotPasswordScreen({ initialEmail = "", resetToken = "
 
   const strengthColor = (i) => {
     if (password.length < [8, 10, 12][i]) return "rgba(62,50,38,0.12)";
-    return [colors.mustard, colors.sky, colors.savanna][i];
+    return [colors.gold, colors.sky, colors.savanna][i];
   };
 
   return (
@@ -127,9 +134,9 @@ export default function ForgotPasswordScreen({ initialEmail = "", resetToken = "
 
           <View style={styles.headerTextWrap}>
             <Text style={styles.brand}>ALL-IN-ONE-PLANNER</Text>
-            <Text style={styles.title}>{isResetLink ? "Create new password" : "Reset password"}</Text>
+            <Text style={styles.title}>{isResetMode ? "Create new password" : "Reset password"}</Text>
             <Text style={styles.subtitle}>
-              {isResetLink ? "Set a stronger password to secure your account" : "Enter your email and we will send a reset link"}
+              {isResetMode ? "Use the emailed code or secure link to continue" : "Enter your email and we will send a reset code"}
             </Text>
           </View>
         </SafeAreaView>
@@ -142,11 +149,9 @@ export default function ForgotPasswordScreen({ initialEmail = "", resetToken = "
               <View style={styles.successIconWrap}>
                 <IconCheck color={colors.ivory} size={22} />
               </View>
-              <Text style={styles.successTitle}>{isResetLink ? "Password updated" : "Check your email"}</Text>
+              <Text style={styles.successTitle}>Password updated</Text>
               <Text style={styles.successText}>
-                {isResetLink
-                  ? "Your password has been reset successfully. You can sign in with your new credentials."
-                  : "We sent a password reset link to your email address. Open it to create a new password."}
+                Your password has been reset successfully. You can sign in with your new credentials.
               </Text>
               <Pressable onPress={onLogin} style={styles.submitBtn}>
                 <Text style={styles.submitText}>Back to sign in</Text>
@@ -168,8 +173,29 @@ export default function ForgotPasswordScreen({ initialEmail = "", resetToken = "
                 error={errors.email}
               />
 
-              {isResetLink && (
+              {resetRequested && (
+                <View style={styles.noticeCard}>
+                  <Text style={styles.noticeTitle}>Check your email</Text>
+                  <Text style={styles.noticeText}>We sent a reset code and secure link to {email}. Enter the code below to reset your password in the app.</Text>
+                </View>
+              )}
+
+              {isResetMode && (
                 <>
+                  {!isResetLink && (
+                    <Field
+                      label="Reset code"
+                      value={resetCode}
+                      onChangeText={(value) => {
+                        setResetCode(value.replace(/\D/g, "").slice(0, 6));
+                        setErrors((prev) => ({ ...prev, resetCode: undefined }));
+                      }}
+                      placeholder="123456"
+                      keyboardType="number-pad"
+                      error={errors.resetCode}
+                    />
+                  )}
+
                   <View style={{ gap: 6 }}>
                     <Text style={styles.pwLabel}>New password</Text>
                     <View style={styles.pwWrap}>
@@ -214,11 +240,15 @@ export default function ForgotPasswordScreen({ initialEmail = "", resetToken = "
               )}
 
               <Pressable
-                onPress={isResetLink ? handleResetPassword : handleRequestLink}
+                onPress={isResetMode ? handleResetPassword : handleRequestLink}
                 disabled={loading}
                 style={[styles.submitBtn, loading && { opacity: 0.8 }]}
               >
-                {loading ? <ActivityIndicator color={colors.ivory} /> : <Text style={styles.submitText}>{isResetLink ? "Update password" : "Send reset link"}</Text>}
+                {loading ? (
+                  <ActivityIndicator color={colors.ivory} />
+                ) : (
+                  <Text style={styles.submitText}>{isResetMode ? "Update password" : "Send reset code"}</Text>
+                )}
               </Pressable>
             </>
           )}
@@ -244,6 +274,9 @@ const styles = StyleSheet.create({
   curve: { height: 24, marginTop: -12, borderTopLeftRadius: 24, borderTopRightRadius: 24, backgroundColor: colors.sand },
   body: { flex: 1, paddingHorizontal: 24 },
   bodyContent: { gap: 16, paddingBottom: 32, maxWidth: 420, width: "100%", alignSelf: "center" },
+  noticeCard: { backgroundColor: "rgba(122,158,159,0.12)", borderRadius: 14, padding: 14, borderWidth: 1, borderColor: "rgba(122,158,159,0.28)" },
+  noticeTitle: { fontSize: 13, fontFamily: fonts.bodyBold, color: colors.sky, marginBottom: 4 },
+  noticeText: { fontSize: 12, lineHeight: 18, color: colors.charcoal, opacity: 0.7 },
   successCard: { alignItems: "center", backgroundColor: colors.ivory, borderRadius: 18, padding: 24, marginTop: 24 },
   successIconWrap: { width: 60, height: 60, borderRadius: 30, backgroundColor: colors.savanna, alignItems: "center", justifyContent: "center", marginBottom: 12 },
   successTitle: { fontSize: 22, fontFamily: fonts.display, color: colors.charcoal, marginBottom: 8 },
