@@ -79,6 +79,15 @@ async function getAuditEvents(limit = 100) {
   }));
 }
 
+async function getUserAuditEvents(email) {
+  const snapshot = await auditEvents
+    .where("targetEmail", "==", normalizedEmail(email))
+    .get();
+  return snapshot.docs
+    .map((document) => ({ id: document.id, ...document.data() }))
+    .sort((a, b) => String(b.occurredAt || "").localeCompare(String(a.occurredAt || "")));
+}
+
 async function checkDatabase() {
   await migrations.limit(1).get();
 }
@@ -134,6 +143,7 @@ module.exports = {
   db,
   checkDatabase,
   getAuditEvents,
+  getUserAuditEvents,
   getMigrationMarker,
   getRegistrationChallenge,
   getUser,

@@ -11,6 +11,10 @@ const Icons_1 = require("./Icons");
 const Badge_1 = __importDefault(require("./Badge"));
 const format_1 = require("../utils/format");
 function AccomCard({ accom: ac, selected, onView, onSelect, onDirections, overBudget = false, }) {
+    const photoCredits = (ac.details?.photoAttributions || [])
+        .map((attribution) => typeof attribution === "string" ? attribution : attribution.displayName)
+        .filter((name) => name && name !== "Google Maps")
+        .join(", ");
     return (
       <react_native_1.View
         style={[
@@ -23,6 +27,19 @@ function AccomCard({ accom: ac, selected, onView, onSelect, onDirections, overBu
           },
         ]}
       >
+        {!!ac.details?.image && (
+          <react_native_1.View>
+            <react_native_1.Image
+              source={{ uri: ac.details.image }}
+              style={styles.photo}
+              accessibilityLabel={`Photo of ${ac.name}`}
+            />
+            <react_native_1.Text style={styles.photoAttribution}>
+              Photo: {ac.details.imageAttribution || "Accommodation"}
+              {photoCredits ? ` · ${photoCredits}` : ""}
+            </react_native_1.Text>
+          </react_native_1.View>
+        )}
         <react_native_1.Pressable onPress={onView} style={styles.mainArea}>
           <react_native_1.View style={styles.topRow}>
             <react_native_1.View style={{ flex: 1 }}>
@@ -133,7 +150,7 @@ function AccomCard({ accom: ac, selected, onView, onSelect, onDirections, overBu
               >
                 {ac.pricePerNight == null
                   ? 'Price unavailable · check property'
-                  : '/night'}
+                  : '/room/night'}
               </react_native_1.Text>
             </react_native_1.View>
           </react_native_1.View>
@@ -215,6 +232,19 @@ const styles = react_native_1.StyleSheet.create({
         shadowOffset: { width: 0, height: 1 },
         elevation: 1,
         marginBottom: 10,
+    },
+    photo: { width: "100%", height: 150, backgroundColor: theme_1.colors.sand },
+    photoAttribution: {
+        position: "absolute",
+        right: 6,
+        bottom: 6,
+        paddingHorizontal: 6,
+        paddingVertical: 3,
+        borderRadius: 4,
+        overflow: "hidden",
+        backgroundColor: "rgba(0,0,0,0.6)",
+        color: "#fff",
+        fontSize: 9,
     },
     mainArea: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 },
     topRow: { flexDirection: "row", justifyContent: "space-between", gap: 12 },

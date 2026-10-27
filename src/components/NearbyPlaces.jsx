@@ -14,7 +14,6 @@ import { fetchDrivingDistances, fetchNearbyPlaces } from "../services/placesServ
 
 const CATEGORIES = [
   { id: "all", label: "All nearby", icon: "📍" },
-  { id: "stay", label: "Stays", icon: "🛏️" },
   { id: "restaurant", label: "Restaurants", icon: "🍽️" },
   { id: "fuel", label: "Fuel", icon: "⛽" },
 ];
@@ -75,6 +74,7 @@ export default function NearbyPlaces({
   const [category, setCategory] = useState("all");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [warning, setWarning] = useState("");
   const [userLocation, setUserLocation] = useState(null);
   const [locationMessage, setLocationMessage] = useState("");
   const [expandedPlace, setExpandedPlace] = useState(null);
@@ -86,16 +86,22 @@ export default function NearbyPlaces({
   const loadPlaces = useCallback(async (signal) => {
     setLoading(true);
     setError("");
+    setWarning("");
     try {
-      const results = await fetchNearbyPlaces({
+      const result = await fetchNearbyPlaces({
         latitude,
         longitude,
         category: "all",
         signal,
       });
       const uniquePlaces = new Map();
-      results.forEach((place) => uniquePlaces.set(place.id, place));
+      result.places
+        .filter((place) => place.category !== "stay")
+        .forEach((place) => uniquePlaces.set(place.id, place));
       setPlaces(Array.from(uniquePlaces.values()));
+      const warningText = result.warning || "";
+      const accommodationOnlyWarning = /accommodation|\bstays?\b/i.test(warningText) && !/restaurant|fuel/i.test(warningText);
+      setWarning(accommodationOnlyWarning ? "" : warningText);
       setRoutesToAttraction({});
       setRoutesFromUser({});
     } catch (loadError) {
@@ -151,7 +157,7 @@ export default function NearbyPlaces({
   useEffect(() => {
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
       setPlaces([]);
-      setError("Nearby OpenStreetMap search needs coordinates for this attraction.");
+      setError("Nearby accommodation search needs coordinates for this attraction.");
       return undefined;
     }
     const controller = new AbortController();
@@ -220,6 +226,14 @@ export default function NearbyPlaces({
     }
   };
 
+  const openGeoapifyAttribution = async () => {
+    try {
+      await Linking.openURL("https://www.geoapify.com/");
+    } catch {
+      Alert.alert("Unable to open attribution", "Geoapify is available at geoapify.com.");
+    }
+  };
+
   const openWebsite = async (website) => {
     try {
       await Linking.openURL(website);
@@ -266,6 +280,7 @@ export default function NearbyPlaces({
         </Text>
       </Pressable>
       {!!locationMessage && <Text style={styles.locationMessage}>{locationMessage}</Text>}
+      {!!warning && <Text style={styles.warningText}>{warning}</Text>}
       {routeLoading && <Text style={styles.locationMessage}>Calculating driving distances with Google Routes...</Text>}
       {!!routeError && <Text style={styles.errorText}>{routeError}</Text>}
 
@@ -350,7 +365,9 @@ export default function NearbyPlaces({
                         </>
                       )}
                       <Text style={styles.disclaimer}>
-                        OpenStreetMap data is community-maintained and may be incomplete. Prices, availability, ratings, and photos are not supplied by this search.
+                        {place.source === "Geoapify"
+                          ? "Geoapify place data may be incomplete. Prices, availability, ratings, and photos are not supplied by this search."
+                          : "OpenStreetMap data is community-maintained and may be incomplete. Prices, availability, ratings, and photos are not supplied by this search."}
                       </Text>
                     </View>
                   )}
@@ -386,6 +403,14 @@ export default function NearbyPlaces({
         <Text accessibilityRole="link" onPress={openMapAttribution} style={styles.attributionLink}>
           © OpenStreetMap contributors
         </Text>
+        {visiblePlaces.some((place) => place.source === "Geoapify") && (
+          <>
+            {" "}·{" "}
+            <Text accessibilityRole="link" onPress={openGeoapifyAttribution} style={styles.attributionLink}>
+              Powered by Geoapify
+            </Text>
+          </>
+        )}
         {" "}· Driving routes and times from Google Routes may vary with traffic.
       </Text>
     </View>
@@ -435,6 +460,7 @@ const styles = StyleSheet.create({
   message: { fontSize: 11, lineHeight: 16, color: colors.charcoal, opacity: 0.65 },
   errorBox: { gap: 8 },
   errorText: { fontSize: 11, lineHeight: 16, color: "#9B3328" },
+  warningText: { fontSize: 11, lineHeight: 16, color: "#8A641D" },
   retry: { fontSize: 11, fontFamily: fonts.bodySemiBold, color: colors.savanna },
   attribution: { fontSize: 9, lineHeight: 13, color: colors.charcoal, opacity: 0.45 },
   attributionLink: { textDecorationLine: "underline" },

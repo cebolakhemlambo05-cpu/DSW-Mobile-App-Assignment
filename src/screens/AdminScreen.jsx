@@ -21,7 +21,7 @@ import {
   updateAdminUser,
 } from "../services/placesService";
 
-export default function AdminScreen({ adminEmail, onBack }) {
+export default function AdminScreen({ adminEmail, adminToken, adminRole = "superuser", onBack }) {
   const [users, setUsers] = useState([]);
   const [error, setError] = useState("");
   const [editing, setEditing] = useState(null);
@@ -43,9 +43,9 @@ export default function AdminScreen({ adminEmail, onBack }) {
   const load = useCallback(async () => {
     setLoading(true);
     const [usersResult, auditResult, healthResult] = await Promise.allSettled([
-      fetchAdminUsers(adminEmail),
-      fetchAdminAuditEvents(adminEmail),
-      fetchAdminHealth(adminEmail),
+      fetchAdminUsers(adminToken),
+      fetchAdminAuditEvents(adminToken),
+      fetchAdminHealth(adminToken),
     ]);
     if (usersResult.status === "fulfilled") {
       setUsers(usersResult.value.users || []);
@@ -73,10 +73,12 @@ export default function AdminScreen({ adminEmail, onBack }) {
       setHealthError(healthResult.reason.message || "Firestore health check failed.");
     }
     setLoading(false);
-  }, [adminEmail]);
+  }, [adminEmail, adminToken]);
 
   useEffect(() => {
     load();
+    const refreshTimer = setInterval(load, 15000);
+    return () => clearInterval(refreshTimer);
   }, [load]);
 
   const activitySummary = useMemo(() => {
@@ -213,7 +215,7 @@ export default function AdminScreen({ adminEmail, onBack }) {
     setDeletingEmail(user.email);
     setError("");
     try {
-      await deleteAdminUser(adminEmail, user.email);
+      await deleteAdminUser(adminToken, user.email);
       setUsers((currentUsers) =>
         currentUsers.filter((entry) => entry.email !== user.email)
       );
@@ -229,7 +231,7 @@ export default function AdminScreen({ adminEmail, onBack }) {
     if (!editing) return;
     setError("");
     try {
-      await updateAdminUser(adminEmail, editing.email, editing);
+      await updateAdminUser(adminToken, editing.email, editing);
       setEditing(null);
       await load();
     } catch (requestError) {
@@ -290,7 +292,7 @@ export default function AdminScreen({ adminEmail, onBack }) {
         {!compactSidebar && (
           <>
             <Text style={styles.brand}>ALL-IN-ONE</Text>
-            <Text style={styles.sidebarCaption}>ADMIN CONSOLE</Text>
+            <Text style={styles.sidebarCaption}>{adminRole === "superuser" ? "SUPERUSER CONSOLE" : "SECONDARY ADMIN"}</Text>
           </>
         )}
         <View style={styles.navigation}>
@@ -682,13 +684,13 @@ export default function AdminScreen({ adminEmail, onBack }) {
                     ))
                   )}
                   <View style={styles.actions}>
-                    <Pressable
+                    {adminRole === "superuser" && <Pressable
                       onPress={() => setEditing({ ...user })}
                       style={styles.secondary}
                     >
                       <Text style={styles.secondaryText}>Edit user</Text>
-                    </Pressable>
-                    {confirmingEmail === user.email ? (
+                    </Pressable>}
+                    {adminRole === "superuser" && (confirmingEmail === user.email ? (
                       <View style={styles.confirmActions}>
                         <Text style={styles.confirmText}>
                           Delete user and all saved data?
@@ -717,7 +719,7 @@ export default function AdminScreen({ adminEmail, onBack }) {
                       >
                         <Text style={styles.deleteText}>Delete</Text>
                       </Pressable>
-                    )}
+                    ))}
                   </View>
                 </View>
               )

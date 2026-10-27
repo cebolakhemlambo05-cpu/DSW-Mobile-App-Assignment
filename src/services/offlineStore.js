@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Platform } from "react-native";
 import * as Crypto from "expo-crypto";
 import * as SecureStore from "expo-secure-store";
 import CryptoJS from "crypto-js";
@@ -7,7 +8,30 @@ const SESSION_KEY = "planner:active-session";
 const ACCOUNT_PREFIX = "planner:account:";
 const PENDING_PREFIX = "planner:pending:";
 const VERIFIER_PREFIX = "planner:offline-verifier:";
+const AUTH_TOKENS_KEY = "planner:auth-tokens";
 const PBKDF2_ITERATIONS = 120000;
+
+async function readAuthTokens() {
+  const stored = Platform.OS !== "web"
+    ? await SecureStore.getItemAsync(AUTH_TOKENS_KEY)
+    : await AsyncStorage.getItem(AUTH_TOKENS_KEY);
+  return stored ? JSON.parse(stored) : {};
+}
+
+async function writeAuthTokens(tokens) {
+  const serialized = JSON.stringify(tokens);
+  if (Platform.OS !== "web") {
+    return SecureStore.setItemAsync(AUTH_TOKENS_KEY, serialized);
+  }
+  return AsyncStorage.setItem(AUTH_TOKENS_KEY, serialized);
+}
+
+async function deleteAuthTokens() {
+  if (Platform.OS !== "web") {
+    return SecureStore.deleteItemAsync(AUTH_TOKENS_KEY);
+  }
+  return AsyncStorage.removeItem(AUTH_TOKENS_KEY);
+}
 
 function accountKey(email) {
   return `${ACCOUNT_PREFIX}${encodeURIComponent(String(email).trim().toLowerCase())}`;
@@ -22,42 +46,50 @@ function verifierKey(email) {
 }
 
 async function readVerifier(key) {
-  if (typeof window === "undefined") {
+  if (Platform.OS !== "web") {
     return SecureStore.getItemAsync(key);
   }
   return AsyncStorage.getItem(key);
 }
 
 async function writeVerifier(key, value) {
-  if (typeof window === "undefined") {
+  if (Platform.OS !== "web") {
     return SecureStore.setItemAsync(key, value);
   }
   return AsyncStorage.setItem(key, value);
 }
 
 async function deleteVerifier(key) {
-  if (typeof window === "undefined") {
+  if (Platform.OS !== "web") {
     return SecureStore.deleteItemAsync(key);
   }
   return AsyncStorage.removeItem(key);
 }
 
 export async function saveActiveSession(user) {
-  await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(user));
-  await saveCachedAccount(user, user.dayPlan || []);
+  const { accessToken, adminToken, ...sessionData } = user;
+  await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(sessionData));
+  await writeAuthTokens({ accessToken, adminToken });
+  await saveCachedAccount(sessionData, user.dayPlan || []);
 }
 
 export async function restoreActiveSession() {
   const session = await AsyncStorage.getItem(SESSION_KEY);
-  return session ? JSON.parse(session) : null;
+  if (!session) return null;
+  const [sessionData, tokens] = await Promise.all([
+    Promise.resolve(JSON.parse(session)),
+    readAuthTokens(),
+  ]);
+  return { ...sessionData, ...tokens };
 }
 
 export async function clearActiveSession() {
-  await AsyncStorage.removeItem(SESSION_KEY);
+  await Promise.all([AsyncStorage.removeItem(SESSION_KEY), deleteAuthTokens()]);
 }
 
 export async function saveCachedAccount(user, dayPlan = user.dayPlan || []) {
-  const cachedUser = { ...user, dayPlan };
+  const { accessToken, adminToken, ...userData } = user;
+  const cachedUser = { ...userData, dayPlan };
   await AsyncStorage.setItem(accountKey(user.email), JSON.stringify(cachedUser));
 }
 

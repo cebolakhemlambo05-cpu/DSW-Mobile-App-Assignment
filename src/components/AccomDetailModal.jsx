@@ -12,7 +12,7 @@ const format_1 = require("../utils/format");
 const Badge_1 = __importDefault(require("./Badge"));
 const Icons_1 = require("./Icons");
 const { height: SCREEN_H, width: SCREEN_W } = react_native_1.Dimensions.get("window");
-function AccomDetailModal({ visible, accom, attractionName, isSelected, onClose, onSelect, onDirections, }) {
+function AccomDetailModal({ visible, accom, attractionName, photoWarning, isSelected, onClose, onSelect, onDirections, }) {
     if (!accom)
         return null;
     const d = { ...(accom.details || {}) };
@@ -48,6 +48,14 @@ function AccomDetailModal({ visible, accom, attractionName, isSelected, onClose,
             react_native_1.Alert.alert("Unable to check prices", "Please try again or contact the accommodation directly.");
         }
     };
+    const openPhotoAttribution = async (uri) => {
+        try {
+            await react_native_1.Linking.openURL(uri);
+        }
+        catch (_error) {
+            react_native_1.Alert.alert("Unable to open photo credit", "Please try again later.");
+        }
+    };
     return (<react_native_1.Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <react_native_1.Pressable style={styles.backdrop} onPress={onClose}/>
       <react_native_1.View style={[styles.sheet, { maxHeight: SCREEN_H * 0.92 }]}>
@@ -62,6 +70,11 @@ function AccomDetailModal({ visible, accom, attractionName, isSelected, onClose,
           ) : (
             <react_native_1.View style={styles.noPhoto}>
               <react_native_1.Text style={styles.noPhotoText}>No property photos available</react_native_1.Text>
+              {!!photoWarning && (
+                <react_native_1.Text style={styles.photoWarning}>
+                  {photoWarning}
+                </react_native_1.Text>
+              )}
             </react_native_1.View>
           )}
           <expo_linear_gradient_1.LinearGradient colors={["transparent", "rgba(0,0,0,0.1)", "rgba(0,0,0,0.6)"]} style={react_native_1.StyleSheet.absoluteFill}/>
@@ -76,15 +89,30 @@ function AccomDetailModal({ visible, accom, attractionName, isSelected, onClose,
             <react_native_1.Text style={styles.heroTitle}>{accom.name}</react_native_1.Text>
             <react_native_1.View style={styles.heroMetaRow}>
               <Icons_1.IconMapPin size={12} color="rgba(255,255,255,0.75)"/>
-              <react_native_1.Text style={styles.heroMeta}> {accom.distanceKm}km to {attractionName.split(" ")[0]} gate  ·  {accom.type}</react_native_1.Text>
+              <react_native_1.Text style={styles.heroMeta}> {Number.isFinite(accom.distanceKm) ? `${accom.distanceKm}km to ${attractionName.split(" ")[0]} gate` : "Distance unavailable"}  ·  {accom.type}</react_native_1.Text>
             </react_native_1.View>
           </react_native_1.View>
         </react_native_1.View>
 
         {!!d.photoAttributions?.length && (
-          <react_native_1.Text style={styles.ratingSub}>
-            Photo credits: {d.photoAttributions.join(", ")}
-          </react_native_1.Text>
+          <react_native_1.View style={styles.photoCredits}>
+            <react_native_1.Text style={styles.ratingSub}>Photo credits: </react_native_1.Text>
+            {d.photoAttributions.map((attribution, index) => {
+              const credit = typeof attribution === "string"
+                ? { displayName: attribution, uri: "" }
+                : attribution;
+              return (
+                <react_native_1.Text
+                  key={`${credit.displayName}-${index}`}
+                  accessibilityRole={credit.uri ? "link" : undefined}
+                  onPress={credit.uri ? () => openPhotoAttribution(credit.uri) : undefined}
+                  style={[styles.ratingSub, credit.uri ? styles.photoCreditLink : null]}
+                >
+                  {credit.displayName}{index < d.photoAttributions.length - 1 ? ", " : ""}
+                </react_native_1.Text>
+              );
+            })}
+          </react_native_1.View>
         )}
         <react_native_1.ScrollView style={styles.body} contentContainerStyle={{ paddingBottom: 16 }} showsVerticalScrollIndicator={false}>
           {/* Rating + price */}
@@ -100,7 +128,7 @@ function AccomDetailModal({ visible, accom, attractionName, isSelected, onClose,
             </react_native_1.View>
             <react_native_1.View style={{ alignItems: "flex-end" }}>
               <react_native_1.Text style={styles.priceBig}>{(0, format_1.fmt)(accom.pricePerNight, accom.currency)}</react_native_1.Text>
-              <react_native_1.Text style={styles.priceSub}>{accom.pricePerNight == null ? 'No verified live rate' : 'per night (from provider offer)'}</react_native_1.Text>
+              <react_native_1.Text style={styles.priceSub}>{accom.pricePerNight == null ? 'No verified live rate' : 'per room/night (from provider offer)'}</react_native_1.Text>
             </react_native_1.View>
           </react_native_1.View>
 
@@ -227,6 +255,7 @@ const styles = react_native_1.StyleSheet.create({
     hero: { width: "100%", height: "100%" },
     noPhoto: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme_1.colors.sand },
     noPhotoText: { color: theme_1.colors.charcoal, fontSize: 12 },
+    photoWarning: { color: theme_1.colors.charcoal, opacity: 0.65, fontSize: 10, textAlign: "center", marginTop: 8, paddingHorizontal: 24 },
     closeBtn: {
         position: "absolute",
         top: 16,
@@ -259,6 +288,8 @@ const styles = react_native_1.StyleSheet.create({
     starsRow: { flexDirection: "row", alignItems: "center" },
     ratingNum: { fontSize: 13, fontFamily: theme_1.fonts.bodySemiBold, color: theme_1.colors.charcoal, marginLeft: 2 },
     ratingSub: { fontSize: 11, color: theme_1.colors.charcoal, opacity: 0.5, marginTop: 2 },
+    photoCredits: { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: 20, paddingTop: 8 },
+    photoCreditLink: { textDecorationLine: "underline" },
     priceBig: { fontSize: 24, fontFamily: theme_1.fonts.display, color: theme_1.colors.charcoal },
     priceSub: { fontSize: 10, color: theme_1.colors.charcoal, opacity: 0.5 },
     badgeRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 14 },

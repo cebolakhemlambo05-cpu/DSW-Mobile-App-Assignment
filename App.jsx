@@ -36,6 +36,8 @@ import {
   deleteUserAccount,
   fetchUserProfile,
   fetchUserPlan,
+  logoutAdmin,
+  logoutUser,
 } from './src/services/placesService';
 import {
   clearActiveSession,
@@ -77,6 +79,8 @@ export default function App() {
   const [restoringSession, setRestoringSession] = useState(true);
   const [syncNotice, setSyncNotice] = useState('');
   const pendingCredentials = useRef(null);
+  const dayPlanRef = useRef(dayPlan);
+  dayPlanRef.current = dayPlan;
 
   useEffect(() => {
     let active = true;
@@ -134,7 +138,7 @@ export default function App() {
           await clearPendingChanges(currentUser.email, ['profile']);
         }
 
-        let plan = dayPlan;
+        let plan = dayPlanRef.current;
         if (Array.isArray(pending?.dayPlan)) {
           plan = pending.dayPlan;
           await saveUserPlan(currentUser.email, plan);
@@ -171,11 +175,15 @@ export default function App() {
     };
     const appStateSubscription = AppState.addEventListener('change', onAppStateChange);
     if (typeof window !== 'undefined') window.addEventListener('online', syncAccount);
+    const syncTimer = setInterval(() => {
+      if (AppState.currentState === 'active') syncAccount();
+    }, 30000);
     syncAccount();
 
     return () => {
       active = false;
       appStateSubscription.remove();
+      clearInterval(syncTimer);
       if (typeof window !== 'undefined') window.removeEventListener('online', syncAccount);
     };
   }, [currentUser?.email, currentUser?.isAdmin]);
@@ -316,7 +324,7 @@ export default function App() {
         return {
           ok: true,
           adminRequired: true,
-          userName: result.user,
+          userName: { ...result.user, adminToken: result.adminToken, adminRole: result.role },
         };
       }
       pendingCredentials.current = { email: cleanEmail, password };
@@ -459,6 +467,47 @@ export default function App() {
     await persistPlan(nextPlan);
   };
 
+  const updatePlanGroupSize = async (groupSize) => {
+    const nextPlan = dayPlan.map((entry) => {
+      const roomQuantity = Number(entry.roomQuantity || entry.booking?.roomQuantity || 1);
+      const roomSharing = Number(entry.roomSharing || entry.booking?.roomSharing || 2);
+      const nights = Number(entry.stayNights || entry.booking?.nights || 1);
+      const accommodationTotal = entry.accommodation
+        ? Number(entry.accommodation.price || 0) * roomQuantity * nights
+        : 0;
+      const activitiesTotal = (entry.activities || []).reduce(
+        (sum, activity) => sum + Number(activity.price || 0) * groupSize,
+        0
+      );
+      const guestsNeedingRoom = entry.accommodation
+        ? Math.max(0, groupSize - roomQuantity * roomSharing)
+        : 0;
+      const booking = entry.booking
+        ? {
+            ...entry.booking,
+            adults: groupSize,
+            roomQuantity,
+            roomSharing,
+            guestsNeedingRoom,
+            accommodationTotal,
+            activitiesTotal,
+            amount: accommodationTotal + activitiesTotal,
+          }
+        : undefined;
+      return {
+        ...entry,
+        groupSize,
+        roomQuantity,
+        roomSharing,
+        guestsNeedingRoom,
+        accommodationTotal,
+        activitiesTotal,
+        booking,
+      };
+    });
+    await updatePlan(nextPlan);
+  };
+
   const handleAuthSuccess = async (nameOrUser) => {
     const user = typeof nameOrUser === 'object'
       ? nameOrUser
@@ -551,6 +600,7 @@ export default function App() {
                 onSignOut={async () => {
                   if (currentUser?.email && !currentUser.isAdmin) {
                     await persistPlan(dayPlan);
+                    try { await logoutUser(); } catch {}
                   }
                   await clearActiveSession();
                   setCurrentUser(null);
@@ -562,7 +612,9 @@ export default function App() {
             {screen === 'attraction' && selectedAttraction && (
               <AttractionScreen
                 attraction={selectedAttraction}
+                currentUser={currentUser}
                 onBack={() => setScreen('home')}
+                onGoToPlan={() => setScreen('dayplan')}
                 onAddToPlan={addToPlan}
                 existingEntry={dayPlan.find(
                   (e) => e.attractionId === selectedAttraction.id
@@ -578,6 +630,7 @@ export default function App() {
                 }
                 onClearAll={() => updatePlan([])}
                 onSelectAttraction={selectAttraction}
+                onGroupSizeChange={updatePlanGroupSize}
               />
             )}
             {screen === 'privacy' && (
@@ -585,6 +638,7 @@ export default function App() {
                 onBack={() => setScreen('home')}
                 onPrivacy={() => setScreen('privacy')}
                 onAbout={() => setScreen('about')}
+                onManageAccount={() => setScreen('profile')}
               />
             )}
             {screen === 'about' && (
@@ -640,7 +694,15 @@ export default function App() {
             {screen === 'admin' && (
               <AdminScreen
                 adminEmail={currentUser.email}
-                onBack={() => setScreen('profile')}
+                adminToken={currentUser.adminToken}
+                adminRole={currentUser.adminRole}
+                onBack={async () => {
+                  try { await logoutAdmin(currentUser.adminToken); } catch {}
+                  await clearActiveSession();
+                  setCurrentUser(null);
+                  setAuthMode('landing');
+                  setScreen('home');
+                }}
               />
             )}
           </>

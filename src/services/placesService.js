@@ -1,4 +1,5 @@
 import Constants from "expo-constants";
+import { restoreActiveSession } from "./offlineStore";
 
 // --- API base URL resolution -------------------------------------------------
 // The #1 cause of "failing to fetch" on a phone/emulator is that `localhost`
@@ -138,10 +139,36 @@ export async function fetchAccommodationOffers({
     const response = await fetch(url.toString(), { signal: timeoutController.signal });
     const data = await readApiJson(response, "Hotel offers");
     if (!response.ok) throw new Error(data?.error || `Hotel backend error (HTTP ${response.status}).`);
-    return Array.isArray(data.hotels) ? data.hotels : [];
+    return {
+      hotels: Array.isArray(data.hotels) ? data.hotels : [],
+      hotelWarning:
+        typeof data.hotelWarning === "string" ? data.hotelWarning : "",
+      photoWarning:
+        typeof data.photoWarning === "string" ? data.photoWarning : "",
+    };
   } finally {
     clearTimeout(timeoutId);
   }
+}
+
+export async function sendBookingConfirmationEmail(booking) {
+  const session = await restoreActiveSession();
+  const response = await fetch(`${API_BASE}/booking-confirmation-email`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(session?.accessToken ? { Authorization: `Bearer ${session.accessToken}` } : {}),
+    },
+    body: JSON.stringify({ booking }),
+  });
+  const data = await readApiJson(response, "Booking confirmation email");
+  if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error(data?.errors?.form || "Your app sign-in session expired. Sign out and sign in again, then retry the booking email.");
+    }
+    throw new Error(data?.error || data?.errors?.form || `Email service failed (HTTP ${response.status}).`);
+  }
+  return data;
 }
 
 export async function fetchNearbyPlaces({
@@ -169,7 +196,10 @@ export async function fetchNearbyPlaces({
     if (!Array.isArray(data.places)) {
       throw new Error("Nearby places service returned an invalid response.");
     }
-    return data.places;
+    return {
+      places: data.places,
+      warning: typeof data.warning === "string" ? data.warning : "",
+    };
   } catch (error) {
     if (error?.name === "AbortError") {
       if (signal?.aborted) throw error;
@@ -338,20 +368,35 @@ export async function loginUser(payload) {
   return data;
 }
 
+export async function getAdminRoleHint(email) {
+  try {
+    const response = await fetch(
+      `${API_BASE}/auth/admin-role?email=${encodeURIComponent(String(email || '').trim().toLowerCase())}`
+    );
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.role || null;
+  } catch {
+    return null;
+  }
+}
+
 export const verifyLoginOtp = (payload) =>
   postAuth('/auth/login/verify-otp', payload);
 export const verifyRegistrationOtp = (payload) =>
   postAuth('/auth/register/verify-otp', payload);
 
-async function accountRequest(path, { method = 'GET', body, adminEmail } = {}) {
+async function accountRequest(path, { method = 'GET', body, adminToken } = {}) {
   let response;
   let data;
   try {
+    const session = adminToken ? null : await restoreActiveSession();
+    const accessToken = adminToken || session?.accessToken;
     response = await fetch(`${API_BASE}${path}`, {
       method,
       headers: {
         'Content-Type': 'application/json',
-        ...(adminEmail ? { 'x-admin-email': adminEmail } : {}),
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
@@ -374,6 +419,8 @@ async function accountRequest(path, { method = 'GET', body, adminEmail } = {}) {
 
 export const fetchUserProfile = (email) =>
   accountRequest(`/users/${encodeURIComponent(email)}/profile`);
+export const fetchUserActivity = (email) =>
+  accountRequest(`/users/${encodeURIComponent(email)}/activity`);
 export const updateUserProfile = (email, profile) =>
   accountRequest(`/users/${encodeURIComponent(email)}/profile`, {
     method: 'PATCH',
@@ -398,22 +445,25 @@ export const removeUserPlanEntry = (email, attractionId) =>
     `/users/${encodeURIComponent(email)}/plan/${encodeURIComponent(attractionId)}`,
     { method: 'DELETE' }
   );
-export const fetchAdminUsers = (adminEmail) =>
-  accountRequest('/admin/users', { adminEmail });
-export const fetchAdminAuditEvents = (adminEmail) =>
-  accountRequest('/admin/audit-events', { adminEmail });
-export const fetchAdminHealth = (adminEmail) =>
-  accountRequest('/admin/health', { adminEmail });
-export const updateAdminUser = (adminEmail, email, profile) =>
+export const fetchAdminUsers = (adminToken) =>
+  accountRequest('/admin/users', { adminToken });
+export const fetchAdminAuditEvents = (adminToken) =>
+  accountRequest('/admin/audit-events', { adminToken });
+export const fetchAdminHealth = (adminToken) =>
+  accountRequest('/admin/health', { adminToken });
+export const logoutAdmin = (adminToken) =>
+  accountRequest('/admin/logout', { method: 'POST', adminToken });
+export const logoutUser = () => accountRequest('/auth/logout', { method: 'POST' });
+export const updateAdminUser = (adminToken, email, profile) =>
   accountRequest(`/admin/users/${encodeURIComponent(email)}`, {
     method: 'PATCH',
     body: profile,
-    adminEmail,
+    adminToken,
   });
-export const deleteAdminUser = (adminEmail, email) =>
+export const deleteAdminUser = (adminToken, email) =>
   accountRequest(`/admin/users/${encodeURIComponent(email)}`, {
     method: 'DELETE',
-    adminEmail,
+    adminToken,
   });
 
 export async function requestPasswordResetLink(payload) {

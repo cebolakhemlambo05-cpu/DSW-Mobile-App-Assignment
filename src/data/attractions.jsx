@@ -23,7 +23,7 @@ const makeAccommodation = ({
 }) => ({
   id,
   name,
-  image: resolveImage(image, DEFAULT_ACCOMMODATION_IMAGE),
+  image: resolveAccommodationImage(image),
   description,
   priceFrom,
   pricePerNight: priceFrom,
@@ -36,7 +36,7 @@ const makeAccommodation = ({
   source,
 
   details: {
-    image: resolveImage(image, DEFAULT_ACCOMMODATION_IMAGE),
+    image: resolveAccommodationImage(image),
     description,
     checkIn,
     checkOut,
@@ -96,10 +96,11 @@ const CATEGORY_IMAGES = {
 };
 
 const DEFAULT_ATTRACTION_IMAGE = "https://images.unsplash.com/photo-1539650116574-75c0c6d73f6e?w=1000&h=650&fit=crop&auto=format";
-const DEFAULT_ACCOMMODATION_IMAGE = "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1000&h=650&fit=crop&auto=format";
-
 const resolveImage = (image, fallback) =>
   typeof image === "string" && /^(https?:|data:)/.test(image) ? image : fallback;
+
+const resolveAccommodationImage = (image) =>
+  typeof image === "string" && /^(https?:|data:)/.test(image) ? image : "";
 
 const getAttractionImage = (attraction) =>
   resolveImage(attraction.image, CATEGORY_IMAGES[attraction.category] || DEFAULT_ATTRACTION_IMAGE);
@@ -3881,10 +3882,10 @@ const normalizedAttractions = attractions.map((attraction) => ({
   image: getAttractionImage(attraction),
   accommodations: (attraction.accommodations || []).map((accommodation) => ({
     ...accommodation,
-    image: resolveImage(accommodation.image, DEFAULT_ACCOMMODATION_IMAGE),
+    image: resolveAccommodationImage(accommodation.image),
     details: {
       ...(accommodation.details || {}),
-      image: resolveImage(accommodation.details?.image || accommodation.image, DEFAULT_ACCOMMODATION_IMAGE),
+      image: resolveAccommodationImage(accommodation.details?.image || accommodation.image),
       amenities: accommodation.details?.amenities || accommodation.facilities || [],
       roomTypes: accommodation.details?.roomTypes || accommodation.roomTypes || [],
       reviews: accommodation.details?.reviews || [],
