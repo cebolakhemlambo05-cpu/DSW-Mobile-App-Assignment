@@ -11,6 +11,16 @@ npx expo start
 
 Then press `i` for iOS simulator, `a` for Android emulator, or scan the QR code with the **Expo Go** app on your phone.
 
+## Mobile release builds
+
+This project is configured for Expo Application Services (EAS). `eas.json` has an internal Android APK profile (`preview`) and a store build profile (`production`). Before building an installed app, deploy the Express API to a public HTTPS host and set `EXPO_PUBLIC_API_URL` in the EAS build environment to the API URL ending in `/api`. The API and mobile app must be deployed separately; the API uses Firestore and the Hotelbeds/EmailJS credentials stay server-side.
+
+For an Android install link, sign in to an Expo account with `npx eas-cli login`, link this project once with `npx eas-cli init`, then run `npx eas-cli build --platform android --profile preview`. EAS will build an APK and provide a link/QR code for installation. For iPhone distribution, an Apple Developer account and registered device or TestFlight setup are required. Production store builds use `npx eas-cli build --platform android --profile production` or `--platform ios`.
+
+`render.yaml` defines a Render web service for the backend. Create the service from the repository Blueprint and add the secret values when prompted: `FIREBASE_SERVICE_ACCOUNT_JSON` (the full service-account JSON), the admin credentials, Hotelbeds credentials, and the EmailJS OTP/booking variables. Never commit these values. Copy the deployed HTTPS service URL into `EXPO_PUBLIC_API_URL` in the EAS `preview` and `production` environments, appending `/api`, before building the mobile app. The free Render service is suitable for a demo; sleep/restarts clear this app's in-memory sign-in sessions, so users may have to sign in again.
+
+The project currently uses Expo SDK 51. Google Play requires new apps and updates to target Android API 36 starting August 31, 2026; upgrade the Expo SDK to a version that targets API 36 before submitting a production build to Play. An internal preview APK can be built separately for device testing. Hotelbeds is configured for its test environment, and availability remains subject to the account's test quota; the demo reservation flow does not collect payments or confirm Hotelbeds bookings.
+
 ## API configuration
 
 The backend keeps optional API keys off the device. Create `backend/.env` with:

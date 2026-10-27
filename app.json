@@ -3,8 +3,13 @@
     "name": "ALL-IN-ONE-PLANNER",
     "slug": "all-in-one-planner",
     "version": "1.0.0",
+    "icon": "./assets/app-icon.png",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
     "splash": {
       "image": "./data/images/logo.png",
       "resizeMode": "contain",
@@ -14,15 +19,24 @@
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.cebolakhemlambo.allinoneplanner"
     },
     "android": {
+      "package": "com.cebolakhemlambo.allinoneplanner",
       "adaptiveIcon": {
+        "foregroundImage": "./assets/app-icon.png",
         "backgroundColor": "#E8DCC4"
       }
     },
     "plugins": [
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow ALL-IN-ONE PLANNER to use a profile photo you choose."
+        }
+      ]
     ]
   }
 }

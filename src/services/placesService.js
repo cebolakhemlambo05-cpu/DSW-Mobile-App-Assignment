@@ -1,4 +1,5 @@
 import Constants from "expo-constants";
+import { Platform } from "react-native";
 import { restoreActiveSession } from "./offlineStore";
 
 // --- API base URL resolution -------------------------------------------------
@@ -15,6 +16,10 @@ import { restoreActiveSession } from "./offlineStore";
 function resolveApiBase() {
   if (process.env.EXPO_PUBLIC_API_URL) {
     return process.env.EXPO_PUBLIC_API_URL;
+  }
+
+  if (Platform.OS === "web" && !__DEV__ && typeof window !== "undefined") {
+    return `${window.location.origin}/api`;
   }
 
   const hostUri =

@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
 const crypto = require("crypto");
+const fs = require("fs");
 const path = require("path");
 
 dotenv.config({ path: path.join(__dirname, 'backend', '.env') });
@@ -2241,14 +2242,6 @@ app.get('/api/attractions', async (req, res) => {
   }
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Planner API server listening on http://0.0.0.0:${PORT}`);
-  console.log(`  Health check: http://localhost:${PORT}/api/health`);
-  console.log(
-    `  From your phone, use your computer's LAN IP instead of localhost.`
-  );
-});
-
 app.post('/api/auth/register', async (req, res) => {
   const { firstName, lastName, email, nationality, password } = req.body || {};
   const cleanEmail = String(email || '')
@@ -2903,4 +2896,24 @@ app.post("/api/auth/reset-password", async (req, res) => {
   await saveUser(user);
   revokeUserSessions(cleanEmail);
   return res.json({ user: publicUser(user) });
+});
+
+if (process.env.SERVE_WEB_APP === 'true') {
+  const webBuildDirectory = path.join(__dirname, 'dist');
+  const webIndex = path.join(webBuildDirectory, 'index.html');
+  if (!fs.existsSync(webIndex)) {
+    throw new Error('Web build not found. Run npm run build:web before starting the server.');
+  }
+  app.use(express.static(webBuildDirectory, { index: false }));
+  app.use((req, res, next) => {
+    if (req.method !== 'GET' || req.path.startsWith('/api/')) return next();
+    return res.sendFile(webIndex);
+  });
+}
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Planner API server listening on 0.0.0.0:${PORT}`);
+  if (process.env.SERVE_WEB_APP === 'true') {
+    console.log('Serving the Expo web app and API from this origin.');
+  }
 });

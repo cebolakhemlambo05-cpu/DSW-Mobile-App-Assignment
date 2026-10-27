@@ -1,0 +1,43 @@
+services:
+  - type: web
+    name: all-in-one-planner
+    runtime: node
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm run server
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 22.14.0
+      - key: HOTEL_API_PROVIDER
+        value: hotelbeds
+      - key: HOTELBEDS_API_BASE_URL
+        value: https://api.test.hotelbeds.com
+      - key: FIREBASE_SERVICE_ACCOUNT_JSON
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: HOTELBEDS_API_KEY
+        sync: false
+      - key: HOTELBEDS_API_SECRET
+        sync: false
+      - key: EMAILJS_SERVICE_ID
+        sync: false
+      - key: EMAILJS_TEMPLATE_ID
+        sync: false
+      - key: EMAILJS_OTP_TEMPLATE_ID
+        sync: false
+      - key: EMAILJS_PUBLIC_KEY
+        sync: false
+      - key: EMAILJS_PRIVATE_KEY
+        sync: false
+      - key: EMAILJS_BOOKING_SERVICE_ID
+        sync: false
+      - key: EMAILJS_BOOKING_TEMPLATE_ID
+        sync: false
+      - key: EMAILJS_BOOKING_PUBLIC_KEY
+        sync: false
+      - key: EMAILJS_BOOKING_PRIVATE_KEY
+        sync: false

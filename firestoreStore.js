@@ -11,16 +11,21 @@ const defaultServiceAccountPath = path.join(
 const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH
   ? path.resolve(__dirname, process.env.FIREBASE_SERVICE_ACCOUNT_PATH)
   : defaultServiceAccountPath;
+let serviceAccount;
 
-if (!fs.existsSync(serviceAccountPath)) {
+if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+  try {
+    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+  } catch {
+    throw new Error("FIREBASE_SERVICE_ACCOUNT_JSON must contain the complete Firebase service-account JSON.");
+  }
+} else if (fs.existsSync(serviceAccountPath)) {
+  serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, "utf8"));
+} else {
   throw new Error(
-    `Firebase service-account file was not found at ${serviceAccountPath}. Set FIREBASE_SERVICE_ACCOUNT_PATH in backend/.env.`
+    `Firebase service-account file was not found. Set FIREBASE_SERVICE_ACCOUNT_JSON or FIREBASE_SERVICE_ACCOUNT_PATH.`
   );
 }
-
-const serviceAccount = JSON.parse(
-  fs.readFileSync(serviceAccountPath, "utf8")
-);
 const app =
   getApps()[0] ||
   initializeApp({
