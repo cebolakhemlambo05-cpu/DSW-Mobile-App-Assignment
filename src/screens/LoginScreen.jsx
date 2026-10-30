@@ -136,7 +136,7 @@ export default function LoginScreen({
         return;
       }
 
-      onSuccess(result.userName);
+      onSuccess(result.user);
     } catch (error) {
       setLoading(false);
       setErrors(

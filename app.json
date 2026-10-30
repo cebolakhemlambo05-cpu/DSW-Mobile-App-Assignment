@@ -11,7 +11,7 @@
       "output": "single"
     },
     "splash": {
-      "image": "./data/images/logo.png",
+      "image": "./assets/splash-logo.png",
       "resizeMode": "contain",
       "backgroundColor": "#E8DCC4"
     },
@@ -20,14 +20,20 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.cebolakhemlambo.allinoneplanner"
+      "bundleIdentifier": "com.cebolakhemlambo.allinoneplanner",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.cebolakhemlambo.allinoneplanner",
       "adaptiveIcon": {
         "foregroundImage": "./assets/app-icon.png",
         "backgroundColor": "#E8DCC4"
-      }
+      },
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "plugins": [
       "expo-secure-store",
@@ -37,6 +43,12 @@
           "photosPermission": "Allow ALL-IN-ONE PLANNER to use a profile photo you choose."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "2dd22ad1-2569-4755-ad42-a4ba222b3284"
+      }
+    },
+    "owner": "cebolakhe"
   }
 }

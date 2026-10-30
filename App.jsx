@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, AppState, View, StyleSheet } from "react-native";
+import { ActivityIndicator, AppState, View, Text, StyleSheet } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import {
@@ -56,8 +56,17 @@ import PrivacyScreen from './src/screens/PrivacyScreen';
 import AboutScreen from './src/screens/AboutScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import AdminScreen from './src/screens/AdminScreen';
+import StartupErrorBoundary from './src/components/StartupErrorBoundary';
 
 export default function App() {
+  return (
+    <StartupErrorBoundary>
+      <PlannerApp />
+    </StartupErrorBoundary>
+  );
+}
+
+function PlannerApp() {
   const [frauncesLoaded] = useFraunces({
     Fraunces_600SemiBold,
     Fraunces_700Bold,
@@ -301,7 +310,7 @@ export default function App() {
       setCurrentUser(user);
       setDayPlan(user.dayPlan || []);
       await saveActiveSession(user);
-      return { ok: true, userName: user.firstName };
+      return { ok: true, user };
     } catch (error) {
       return { ok: false, errors: error.errors || { form: error.message } };
     }
@@ -382,7 +391,7 @@ export default function App() {
       setCurrentUser(user);
       setDayPlan(user.dayPlan || []);
       await saveActiveSession(user);
-      return { ok: true, userName: user.firstName };
+      return { ok: true, user };
     } catch (error) {
       return { ok: false, errors: error.errors || { form: error.message } };
     }
@@ -509,19 +518,62 @@ export default function App() {
   };
 
   const handleAuthSuccess = async (nameOrUser) => {
-    const user = typeof nameOrUser === 'object'
+  const suppliedUser =
+    nameOrUser && typeof nameOrUser === 'object'
       ? nameOrUser
-      : { firstName: nameOrUser, dayPlan: [] };
-    setCurrentUser((prev) => prev || user);
-    setDayPlan(user.dayPlan || []);
-    try {
-      await saveActiveSession(user);
-      setSyncNotice('Your account is saved on this device for offline access.');
-    } catch (error) {
-      console.error('Could not save the local session:', error);
-    }
-    if (user.isAdmin) setScreen('admin');
+      : {};
+
+  const user = {
+    ...(currentUser || {}),
+    ...suppliedUser,
+    ...(typeof nameOrUser === 'string'
+      ? { firstName: nameOrUser }
+      : {}),
   };
+
+  // Never save an incomplete session.
+  if (!user.email) {
+    console.error(
+      'Login completed without a valid user email.'
+    );
+    setSyncNotice(
+      'Your account could not be restored. Please sign in again.'
+    );
+    return;
+  }
+
+  const plan = Array.isArray(user.dayPlan)
+    ? user.dayPlan
+    : Array.isArray(dayPlan)
+      ? dayPlan
+      : [];
+
+  const completeUser = {
+    ...user,
+    dayPlan: plan,
+  };
+
+  setCurrentUser(completeUser);
+  setDayPlan(plan);
+
+  try {
+    await saveActiveSession(completeUser);
+    setSyncNotice(
+      'Your account is saved on this device for offline access.'
+    );
+  } catch (error) {
+    console.error(
+      'Could not save the local session:',
+      error
+    );
+  }
+
+  if (completeUser.isAdmin) {
+    setScreen('admin');
+  } else {
+    setScreen('home');
+  }
+};
 
   return (
     <SafeAreaProvider>
@@ -712,15 +764,35 @@ export default function App() {
   );
 }
 
+
+{__DEV__ && (
+  <View style={{ padding: 6, backgroundColor: '#FFE08A' }}>
+    <Text style={{ color: '#000' }}>
+      Screen: {screen} | User: {currentUser?.email || 'None'}
+    </Text>
+  </View>
+)}
+
+useEffect(() => {
+  console.log("APP DIAGNOSTIC:", {
+    hasUser: !!currentUser,
+    email: currentUser?.email,
+    screen,
+    authMode,
+    restoringSession,
+  });
+}, [currentUser, screen, authMode, restoringSession]);
+
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.sand },
   loading: { flex: 1, backgroundColor: colors.sand },
 });
 
 function getInitialResetParams() {
-  if (typeof window === "undefined") return null;
+  const search = typeof window !== "undefined" ? window.location?.search : undefined;
+  if (typeof search !== "string" || !search) return null;
 
-  const params = new URLSearchParams(window.location.search);
+  const params = new URLSearchParams(search);
   const token = params.get("resetToken");
   const email = params.get("email");
 

@@ -7,14 +7,20 @@ import CryptoJS from "crypto-js";
 const SESSION_KEY = "planner:active-session";
 const ACCOUNT_PREFIX = "planner:account:";
 const PENDING_PREFIX = "planner:pending:";
-const VERIFIER_PREFIX = "planner:offline-verifier:";
-const AUTH_TOKENS_KEY = "planner:auth-tokens";
+const VERIFIER_PREFIX = "planner_offline_verifier_";
+const LEGACY_VERIFIER_PREFIX = "planner:offline-verifier:";
+const AUTH_TOKENS_KEY = "planner_auth_tokens";
+const LEGACY_AUTH_TOKENS_KEY = "planner:auth-tokens";
 const PBKDF2_ITERATIONS = 120000;
 
 async function readAuthTokens() {
-  const stored = Platform.OS !== "web"
-    ? await SecureStore.getItemAsync(AUTH_TOKENS_KEY)
-    : await AsyncStorage.getItem(AUTH_TOKENS_KEY);
+  let stored;
+  if (Platform.OS !== "web") {
+    stored = await SecureStore.getItemAsync(AUTH_TOKENS_KEY);
+  } else {
+    stored = await AsyncStorage.getItem(AUTH_TOKENS_KEY);
+    if (!stored) stored = await AsyncStorage.getItem(LEGACY_AUTH_TOKENS_KEY);
+  }
   return stored ? JSON.parse(stored) : {};
 }
 
@@ -30,7 +36,10 @@ async function deleteAuthTokens() {
   if (Platform.OS !== "web") {
     return SecureStore.deleteItemAsync(AUTH_TOKENS_KEY);
   }
-  return AsyncStorage.removeItem(AUTH_TOKENS_KEY);
+  return Promise.all([
+    AsyncStorage.removeItem(AUTH_TOKENS_KEY),
+    AsyncStorage.removeItem(LEGACY_AUTH_TOKENS_KEY),
+  ]);
 }
 
 function accountKey(email) {
@@ -42,14 +51,20 @@ function pendingKey(email) {
 }
 
 function verifierKey(email) {
-  return `${VERIFIER_PREFIX}${encodeURIComponent(String(email).trim().toLowerCase())}`;
+  const normalizedEmail = String(email).trim().toLowerCase();
+  return `${VERIFIER_PREFIX}${CryptoJS.SHA256(normalizedEmail).toString()}`;
 }
 
-async function readVerifier(key) {
+function legacyVerifierKey(email) {
+  return `${LEGACY_VERIFIER_PREFIX}${encodeURIComponent(String(email).trim().toLowerCase())}`;
+}
+
+async function readVerifier(key, email) {
   if (Platform.OS !== "web") {
     return SecureStore.getItemAsync(key);
   }
-  return AsyncStorage.getItem(key);
+  const stored = await AsyncStorage.getItem(key);
+  return stored || AsyncStorage.getItem(legacyVerifierKey(email));
 }
 
 async function writeVerifier(key, value) {
@@ -59,11 +74,14 @@ async function writeVerifier(key, value) {
   return AsyncStorage.setItem(key, value);
 }
 
-async function deleteVerifier(key) {
+async function deleteVerifier(key, email) {
   if (Platform.OS !== "web") {
     return SecureStore.deleteItemAsync(key);
   }
-  return AsyncStorage.removeItem(key);
+  return Promise.all([
+    AsyncStorage.removeItem(key),
+    AsyncStorage.removeItem(legacyVerifierKey(email)),
+  ]);
 }
 
 export async function saveActiveSession(user) {
@@ -102,7 +120,7 @@ export async function removeCachedAccount(email) {
   await Promise.all([
     AsyncStorage.removeItem(accountKey(email)),
     AsyncStorage.removeItem(pendingKey(email)),
-    deleteVerifier(verifierKey(email)),
+    deleteVerifier(verifierKey(email), email),
   ]);
 }
 
@@ -149,7 +167,7 @@ export async function saveOfflineVerifier(email, password) {
 }
 
 export async function verifyOfflinePassword(email, password) {
-  const stored = await readVerifier(verifierKey(email));
+  const stored = await readVerifier(verifierKey(email), email);
   if (!stored) return false;
   const verifier = JSON.parse(stored);
   const candidate = CryptoJS.PBKDF2(
