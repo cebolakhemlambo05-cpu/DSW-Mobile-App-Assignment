@@ -34,6 +34,13 @@ function AccomDetailModal({ visible, accom, attractionName, photoWarning, isSele
         d.checkOut = "Check with property";
     const displayedRating = Number.isFinite(accom.rating) ? accom.rating : null;
     const displayedReviewCount = accom.reviewCount;
+    const ratingCaption = displayedRating == null
+        ? "Rating not supplied by provider"
+        : accom.source === "Hotelbeds"
+            ? `Property category · ${displayedRating}-star Hotelbeds classification`
+            : displayedReviewCount > 0
+                ? `Guest rating · ${displayedReviewCount} reviews · ${accom.source || "provider"}`
+                : `Provider rating · ${accom.source || "source unavailable"}; review count unavailable`;
     const images = d.images?.length ? d.images : d.image ? [d.image] : [];
     const stars = Number.isFinite(displayedRating) ? Math.round(displayedRating) : 0;
     const checkPrices = async () => {
@@ -123,7 +130,7 @@ function AccomDetailModal({ visible, accom, attractionName, photoWarning, isSele
                 <react_native_1.Text style={styles.ratingNum}> {displayedRating}</react_native_1.Text>
               </react_native_1.View>
               <react_native_1.Text style={styles.ratingSub}>
-                  {Number.isFinite(displayedRating) ? `Guest rating · ${displayedReviewCount || d.reviews?.length || 0} reviews` : 'Guest rating unavailable'}
+                  {ratingCaption}
               </react_native_1.Text>
             </react_native_1.View>
             <react_native_1.View style={{ alignItems: "flex-end" }}>

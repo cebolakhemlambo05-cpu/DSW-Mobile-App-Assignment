@@ -11,6 +11,11 @@ const Icons_1 = require("./Icons");
 const Badge_1 = __importDefault(require("./Badge"));
 const format_1 = require("../utils/format");
 function AccomCard({ accom: ac, selected, onView, onSelect, onDirections, overBudget = false, }) {
+    const ratingSummary = ac.source === "Hotelbeds"
+        ? `${ac.rating}-star property class`
+        : ac.reviewCount > 0
+            ? `${ac.rating} (${ac.reviewCount} reviews)`
+            : `${ac.rating} provider rating`;
     const photoCredits = (ac.details?.photoAttributions || [])
         .map((attribution) => typeof attribution === "string" ? attribution : attribution.displayName)
         .filter((name) => name && name !== "Google Maps")
@@ -118,8 +123,8 @@ function AccomCard({ accom: ac, selected, onView, onSelect, onDirections, overBu
                         },
                       ]}
                     >
-                      {' '}
-                      {ac.rating}{ac.reviewCount ? ` (${ac.reviewCount})` : ''}
+                    {' '}
+                      {ratingSummary}
                     </react_native_1.Text>
                   </react_native_1.View>
                 )}

@@ -71,11 +71,11 @@ function AttractionCard({ attraction: a, budget, onPress, }) {
       <react_native_1.View style={styles.footer}>
         <react_native_1.View>
           <react_native_1.Text style={styles.fromLabel}>
-            {cheapest === null ? 'Google price level' : 'Stays from'}
+            {cheapest === null ? 'Accommodation pricing' : 'Indicative stay estimate'}
           </react_native_1.Text>
           <react_native_1.Text style={styles.price}>
             {cheapest === null
-              ? 'Check property'
+              ? 'Check live rates'
               : `R${cheapest.toLocaleString('en-ZA')}`}
             {cheapest !== null && (
               <react_native_1.Text style={styles.perNight}>
@@ -108,10 +108,10 @@ function AttractionCard({ attraction: a, budget, onPress, }) {
             ]}
           >
             {cheapest === null
-              ? 'Live rate unavailable'
+              ? 'Open details for live offers'
               : withinBudget
-                ? 'Within budget'
-                : 'Stretches budget'}
+                ? 'Estimate fits budget'
+                : 'Estimate exceeds budget'}
           </react_native_1.Text>
         </react_native_1.View>
       </react_native_1.View>

@@ -22,7 +22,7 @@ function nightsBetween(checkIn, checkOut) {
   return Number.isFinite(nights) && nights > 0 ? nights : 0;
 }
 
-export default function DemoBookingModal({
+export default function BookingModal({
   visible,
   accommodation,
   attractionName,

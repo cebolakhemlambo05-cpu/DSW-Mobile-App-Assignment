@@ -47,7 +47,7 @@ const BudgetSlider_1 = __importDefault(require("../components/BudgetSlider"));
 const AttractionCard_1 = __importDefault(require("../components/AttractionCard"));
 const BrandLogo_1 = __importDefault(require("../components/BrandLogo"));
 const CATEGORIES = ["All", "Wildlife", "Mountains", "City", "Coast"];
-function HomeScreen({ onSelect, onViewPlan, planCount, currentUser, onSignOut, onViewProfile, syncNotice, }) {
+function HomeScreen({ onSelect, onViewPlan, onViewTravelLens, planCount, currentUser, onSignOut, onViewProfile, syncNotice, }) {
     const [query, setQuery] = (0, react_1.useState)("");
   const { attractions, error, osmSearchActive } = (0, useAttractions_1.useAttractions)(query);
     const [budget, setBudget] = (0, react_1.useState)(2500);
@@ -98,13 +98,18 @@ function HomeScreen({ onSelect, onViewPlan, planCount, currentUser, onSignOut, o
             <react_native_1.Text style={styles.discoverTitle}>South Africa</react_native_1.Text>
             </react_native_1.View>
           </react_native_1.View>
-          <react_native_1.Pressable onPress={onViewPlan} style={styles.planBtn}>
-            <Icons_1.IconCalendar color={theme_1.colors.ivory}/>
-            <react_native_1.Text style={styles.planBtnText}>Day Plan</react_native_1.Text>
-            {planCount > 0 && (<react_native_1.View style={styles.planBadge}>
-                <react_native_1.Text style={styles.planBadgeText}>{planCount}</react_native_1.Text>
-              </react_native_1.View>)}
-          </react_native_1.Pressable>
+          <react_native_1.View style={styles.headerActions}>
+            <react_native_1.Pressable onPress={onViewPlan} style={styles.planBtn}>
+              <Icons_1.IconCalendar color={theme_1.colors.ivory}/>
+              <react_native_1.Text style={styles.planBtnText}>Day Plan</react_native_1.Text>
+              {planCount > 0 && (<react_native_1.View style={styles.planBadge}>
+                  <react_native_1.Text style={styles.planBadgeText}>{planCount}</react_native_1.Text>
+                </react_native_1.View>)}
+            </react_native_1.Pressable>
+            <react_native_1.Pressable onPress={onViewTravelLens} style={styles.planBtn} accessibilityLabel="Open Travel Lens">
+              <react_native_1.Text style={styles.planBtnText}>Travel Lens</react_native_1.Text>
+            </react_native_1.Pressable>
+          </react_native_1.View>
         </react_native_1.View>
       </react_native_safe_area_context_1.SafeAreaView>
 
@@ -119,7 +124,7 @@ function HomeScreen({ onSelect, onViewPlan, planCount, currentUser, onSignOut, o
             {!!syncNotice && <react_native_1.Text style={styles.syncNotice}>{syncNotice}</react_native_1.Text>}
             {osmSearchActive && <react_native_1.Text style={styles.searchAttribution}>Search data © OpenStreetMap contributors</react_native_1.Text>}
 
-            <BudgetSlider_1.default value={budget} onChange={setBudget} sublabel="Accommodation is filtered to match"/>
+            <BudgetSlider_1.default value={budget} onChange={setBudget} sublabel="Filters by indicative stay estimates; check live rates on each destination"/>
 
             <react_native_1.View style={styles.chipsRow}>
               <react_native_1.FlatList data={CATEGORIES} horizontal showsHorizontalScrollIndicator={false} keyExtractor={(c) => c} ItemSeparatorComponent={() => <react_native_1.View style={{ width: 8 }}/>} renderItem={({ item: cat }) => (<react_native_1.Pressable onPress={() => setCategory(cat)} style={[
@@ -138,7 +143,7 @@ function HomeScreen({ onSelect, onViewPlan, planCount, currentUser, onSignOut, o
 
             <react_native_1.View style={styles.countRow}>
               <react_native_1.Text style={styles.countText}>
-                {filtered.length} attraction{filtered.length !== 1 ? "s" : ""} within budget
+                {filtered.length} attraction{filtered.length !== 1 ? "s" : ""} within estimated stay budget
               </react_native_1.Text>
               {filtered.length === 0 && <react_native_1.Text style={styles.raiseBudget}>Try raising your budget</react_native_1.Text>}
             </react_native_1.View>
@@ -163,7 +168,8 @@ const styles = react_native_1.StyleSheet.create({
     userName: { fontFamily: theme_1.fonts.bodySemiBold, color: "rgba(232,220,196,0.9)", textTransform: "capitalize" },
     signOutBtn: { paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8, backgroundColor: "rgba(255,255,255,0.1)" },
     signOutText: { fontSize: 11, color: "rgba(232,220,196,0.7)" },
-    discoverRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    discoverRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", rowGap: 8 },
+    headerActions: { flexDirection: "row", alignItems: "center", gap: 12, marginLeft: "auto" },
     discoverBrand: { flexDirection: "row", alignItems: "center", gap: 10 },
     discoverLabel: { fontSize: 10, fontFamily: theme_1.fonts.bodySemiBold, letterSpacing: 1.5, textTransform: "uppercase", color: "rgba(232,220,196,0.5)" },
     discoverTitle: { fontSize: 20, fontFamily: theme_1.fonts.display, color: theme_1.colors.ivory, marginTop: 2 },

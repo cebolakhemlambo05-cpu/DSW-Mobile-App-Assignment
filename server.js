@@ -27,12 +27,7 @@ const {
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const GOOGLE_ROUTES_API_KEY = process.env.GOOGLE_ROUTES_API_KEY || '';
 const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY || '';
-const OVERPASS_ENDPOINTS = [
-  'https://overpass-api.de/api/interpreter',
-  'https://overpass.kumi.systems/api/interpreter',
-];
 const NOMINATIM_ENDPOINT = 'https://nominatim.openstreetmap.org/search';
 const NOMINATIM_USER_AGENT =
   'AllInOnePlanner/1.0 (South Africa travel planning app)';
@@ -49,6 +44,8 @@ const SCRAPEBADGER_API_KEY = process.env.SCRAPEBADGER_API_KEY || '';
 const SCRAPEBADGER_CURRENCY = 'ZAR';
 const HOTELBEDS_API_KEY = process.env.HOTELBEDS_API_KEY || '';
 const HOTELBEDS_API_SECRET = process.env.HOTELBEDS_API_SECRET || '';
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
+const OPENAI_VISION_MODEL = process.env.OPENAI_VISION_MODEL || 'gpt-4o-mini';
 const HOTELBEDS_API_BASE_URL = (
   process.env.HOTELBEDS_API_BASE_URL || 'https://api.test.hotelbeds.com'
 ).replace(/\/+$/, '');
@@ -79,7 +76,7 @@ const AMADEUS_AUTH_URL =
 let amadeusToken = null;
 
 app.use(cors());
-app.use(express.json({ limit: '400kb' }));
+app.use(express.json({ limit: '12mb' }));
 
 // Log every request so you can see in the terminal whether the phone is even reaching this server.
 app.use((req, _res, next) => {
@@ -90,8 +87,6 @@ app.use((req, _res, next) => {
   next();
 });
 
-const ROUTES_MATRIX_URL =
-  'https://routes.googleapis.com/distanceMatrix/v2:computeRouteMatrix';
 function hashPassword(password, salt = crypto.randomBytes(16).toString('hex')) {
   const hash = crypto.scryptSync(password, salt, 64).toString('hex');
   return `${salt}:${hash}`;
@@ -1108,12 +1103,6 @@ async function convertHotelPricesToZar(hotels) {
   return { hotels: convertedHotels, warning };
 }
 
-const overpassCategoryTags = {
-  stay: ['tourism', '^(hotel|guest_house|hostel|motel|chalet|apartment|camp_site)$'],
-  restaurant: ['amenity', '^(restaurant|cafe|fast_food)$'],
-  fuel: ['amenity', '^fuel$'],
-};
-
 function distanceInKm(fromLat, fromLng, toLat, toLng) {
   const radians = (degrees) => (degrees * Math.PI) / 180;
   const latitudeDelta = radians(toLat - fromLat);
@@ -1126,79 +1115,6 @@ function distanceInKm(fromLat, fromLng, toLat, toLng) {
   return Number(
     (6371 * 2 * Math.atan2(Math.sqrt(value), Math.sqrt(1 - value))).toFixed(1)
   );
-}
-
-function categoryForOsmElement(tags = {}) {
-  if (tags.amenity === 'fuel') return 'fuel';
-  if (['restaurant', 'cafe', 'fast_food'].includes(tags.amenity)) {
-    return 'restaurant';
-  }
-  return Object.prototype.hasOwnProperty.call(tags, 'tourism') ? 'stay' : null;
-}
-
-function coordinatesForOsmElement(element) {
-  const latitude = Number(element.lat ?? element.center?.lat);
-  const longitude = Number(element.lon ?? element.center?.lon);
-  if (
-    !Number.isFinite(latitude) ||
-    latitude < -90 ||
-    latitude > 90 ||
-    !Number.isFinite(longitude) ||
-    longitude < -180 ||
-    longitude > 180
-  ) {
-    return null;
-  }
-  return { latitude, longitude };
-}
-
-function mapOsmElement(element, attractionLatitude, attractionLongitude) {
-  const tags = element.tags || {};
-  const category = categoryForOsmElement(tags);
-  const coordinates = coordinatesForOsmElement(element);
-  if (!category || !coordinates) return null;
-
-  const address = [
-    tags['addr:housenumber'],
-    tags['addr:street'],
-    tags['addr:suburb'],
-    tags['addr:city'] || tags['addr:town'] || tags['addr:village'],
-  ]
-    .filter(Boolean)
-    .join(', ');
-  const name = tags.name || tags['name:en'];
-  return {
-    id: `osm:${element.type}:${element.id}`,
-    category,
-    type:
-      category === 'stay'
-        ? tags.tourism.replaceAll('_', ' ')
-        : tags.cuisine || tags.amenity.replaceAll('_', ' '),
-    name: name || (category === 'fuel' ? 'Unnamed fuel stop' : 'Unnamed place'),
-    address: address || 'Address not available in OpenStreetMap',
-    latitude: coordinates.latitude,
-    longitude: coordinates.longitude,
-    distanceFromAttractionKm: distanceInKm(
-      attractionLatitude,
-      attractionLongitude,
-      coordinates.latitude,
-      coordinates.longitude
-    ),
-    rating: null,
-    reviewCount: null,
-    priceLevel: null,
-    priceLevelLabel: null,
-    pricePerNight: null,
-    currency: 'ZAR',
-    phone: tags.phone || tags['contact:phone'] || '',
-    website: tags.website || tags['contact:website'] || '',
-    mapsQuery: `${name || ''} ${address}`.trim(),
-    openingHours: tags.opening_hours ? [tags.opening_hours] : [],
-    description: tags.description || '',
-    image: '',
-    source: 'OpenStreetMap',
-    attribution: '© OpenStreetMap contributors',
-  };
 }
 
 async function readProviderResponse(response) {
@@ -1499,94 +1415,6 @@ async function attachGooglePlacePhotos(accommodations, latitude, longitude) {
   return { accommodations, photoWarning };
 }
 
-const overpassInFlight = new Map();
-
-function fetchOverpassPlaces(latitude, longitude, category) {
-  const key = `${latitude.toFixed(3)}|${longitude.toFixed(3)}|${category}`;
-  const cacheKey = `openstreetmap-data|${key}`;
-  const cachedPlaces = getCached(cacheKey);
-  if (cachedPlaces) return Promise.resolve(cachedPlaces);
-
-  const pendingRequest = overpassInFlight.get(key);
-  if (pendingRequest) return pendingRequest;
-
-  const request = queryOverpassPlaces(latitude, longitude, category);
-  overpassInFlight.set(key, request);
-  request.then(
-    (places) => {
-      setCached(cacheKey, places);
-      overpassInFlight.delete(key);
-    },
-    () => overpassInFlight.delete(key)
-  );
-  return request;
-}
-
-async function queryOverpassPlaces(latitude, longitude, category) {
-  const selectedCategories =
-    category === 'all'
-      ? Object.keys(overpassCategoryTags).filter((key) => key !== 'stay')
-      : [category];
-  const filters = selectedCategories.map((key) => {
-    const [tag, expression] = overpassCategoryTags[key];
-    return `nwr(around:3000,${latitude},${longitude})["${tag}"~"${expression}"];`;
-  });
-  const query = `[out:json][timeout:20];(${filters.join('')});out center 50;`;
-  const errors = [];
-
-  for (const endpoint of OVERPASS_ENDPOINTS) {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000);
-    try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-          Accept: 'application/json',
-          'User-Agent': 'AllInOnePlanner/1.0',
-        },
-        body: `data=${encodeURIComponent(query)}`,
-        signal: controller.signal,
-      });
-      const { body, payload } = await readProviderResponse(response);
-      if (!response.ok) {
-        errors.push(
-          `${endpoint}: HTTP ${response.status}: ${providerErrorMessage(payload, body, 'No error details returned')}`
-        );
-        continue;
-      }
-      if (!payload) {
-        errors.push(`${endpoint}: non-JSON response: ${body.slice(0, 300) || 'empty response'}`);
-        continue;
-      }
-      if (!Array.isArray(payload.elements)) {
-        errors.push(`${endpoint}: invalid Overpass response`);
-        continue;
-      }
-
-      return payload.elements
-        .map((element) => mapOsmElement(element, latitude, longitude))
-        .filter((place) => place && selectedCategories.includes(place.category))
-        .sort(
-          (left, right) =>
-            left.distanceFromAttractionKm - right.distanceFromAttractionKm
-        );
-    } catch (error) {
-      errors.push(
-        error.name === 'AbortError'
-          ? `${endpoint}: request timed out`
-          : `${endpoint}: ${error.message}`
-      );
-    } finally {
-      clearTimeout(timeoutId);
-    }
-  }
-
-  throw new Error(
-    `OpenStreetMap search failed on the available Overpass servers. ${errors.join('; ')}`
-  );
-}
-
 let nominatimLastRequestAt = 0;
 let nominatimQueue = Promise.resolve();
 
@@ -1734,74 +1562,6 @@ async function searchOsmAttractions(query, category) {
   return results;
 }
 
-function toRouteWaypoint(latitude, longitude) {
-  return {
-    waypoint: {
-      location: {
-        latLng: {
-          latitude: Number(latitude),
-          longitude: Number(longitude),
-        },
-      },
-    },
-  };
-}
-
-async function fetchGoogleRouteMatrix(origins, destinations) {
-  if (!GOOGLE_ROUTES_API_KEY) {
-    throw new Error('GOOGLE_ROUTES_API_KEY is not configured');
-  }
-  const response = await fetch(ROUTES_MATRIX_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Goog-Api-Key': GOOGLE_ROUTES_API_KEY,
-      'X-Goog-FieldMask':
-        'originIndex,destinationIndex,distanceMeters,duration,status,condition',
-    },
-    body: JSON.stringify({
-      origins: origins.map(({ latitude, longitude }) =>
-        toRouteWaypoint(latitude, longitude)
-      ),
-      destinations: destinations.map(({ latitude, longitude }) =>
-        toRouteWaypoint(latitude, longitude)
-      ),
-      travelMode: 'DRIVE',
-      routingPreference: 'TRAFFIC_AWARE',
-    }),
-  });
-  const data = await response.json();
-  if (!response.ok) {
-    if (response.status === 403 || data.error?.status === 'PERMISSION_DENIED') {
-      throw new Error(
-        'Google denied Routes API access. Enable Routes API, confirm billing is active, and check that the API key restrictions allow it.'
-      );
-    }
-    throw new Error(
-      data.error?.message ||
-        `Routes API distance matrix failed (HTTP ${response.status})`
-    );
-  }
-  if (!Array.isArray(data)) {
-    throw new Error('Routes API returned an invalid distance matrix');
-  }
-  return data;
-}
-
-function routeSummary(element) {
-  if (
-    element.status?.code != null &&
-    element.status.code !== 0
-  ) {
-    return null;
-  }
-  if (!Number.isFinite(element.distanceMeters)) return null;
-  return {
-    distanceMeters: element.distanceMeters,
-    duration: element.duration || null,
-  };
-}
-
 // Short-lived cache for public map and weather requests.
 const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 const cache = new Map();
@@ -1826,7 +1586,6 @@ app.get('/api/health', (_req, res) => {
     message: 'Planner API server is running',
     hotelProvider: HOTEL_API_PROVIDER,
     hotelProviderConfigured: hotelApiEnabled(),
-    routesConfigured: Boolean(GOOGLE_ROUTES_API_KEY),
   });
 });
 
@@ -1904,121 +1663,6 @@ app.get('/api/weather', async (req, res) => {
     return res.status(502).json({ error: message });
   } finally {
     clearTimeout(timeoutId);
-  }
-});
-
-app.get('/api/nearby-places', async (req, res) => {
-  const latitude = Number(req.query.lat);
-  const longitude = Number(req.query.lng);
-  const category = String(req.query.category || 'all');
-  if (
-    !Number.isFinite(latitude) ||
-    latitude < -90 ||
-    latitude > 90 ||
-    !Number.isFinite(longitude) ||
-    longitude < -180 ||
-    longitude > 180
-  ) {
-    return res.status(400).json({ error: 'Valid lat and lng coordinates are required' });
-  }
-  const allowedCategories = ['all', 'stay', 'restaurant', 'fuel'];
-  if (!allowedCategories.includes(category)) {
-    return res.status(400).json({
-      error: `category must be one of: ${allowedCategories.join(', ')}`,
-    });
-  }
-  const cacheKey = `nearby|${latitude.toFixed(3)}|${longitude.toFixed(3)}|${category}`;
-  const cached = getCached(cacheKey);
-  if (cached) return res.json({ ...cached, cached: true });
-
-  try {
-    let places = [];
-    let warning = '';
-    if (category === 'stay') {
-      warning = 'Nearby accommodation listings are disabled here. View the Hotelbeds stays section for accommodation offers.';
-    } else {
-      places = await fetchOverpassPlaces(latitude, longitude, category);
-    }
-    const sources = new Set(places.map((place) => place.source));
-    const result = {
-      places,
-      warning: warning || undefined,
-      source: Array.from(sources).join(' and ') || (category === 'stay' ? 'Hotelbeds stays shown separately' : 'OpenStreetMap'),
-      attribution: [
-        sources.has('Geoapify') ? '© Geoapify' : null,
-        sources.has('OpenStreetMap') ? '© OpenStreetMap contributors' : null,
-      ]
-        .filter(Boolean)
-        .join(' · '),
-    };
-    setCached(cacheKey, result);
-    return res.json(result);
-  } catch (error) {
-    return res.status(502).json({
-      error: error.message || 'Nearby places search failed',
-    });
-  }
-});
-
-app.post('/api/route-distances', async (req, res) => {
-  const { places, attraction, userLocation } = req.body || {};
-  const isCoordinate = (point) =>
-    point &&
-    Number.isFinite(Number(point.latitude)) &&
-    Number(point.latitude) >= -90 &&
-    Number(point.latitude) <= 90 &&
-    Number.isFinite(Number(point.longitude)) &&
-    Number(point.longitude) >= -180 &&
-    Number(point.longitude) <= 180;
-
-  if (!Array.isArray(places) || places.length > 60 || !isCoordinate(attraction)) {
-    return res.status(400).json({
-      error: 'Provide up to 60 places and valid attraction coordinates',
-    });
-  }
-  if (userLocation != null && !isCoordinate(userLocation)) {
-    return res.status(400).json({ error: 'Invalid user location coordinates' });
-  }
-  const validPlaces = places.filter(
-    (place) => typeof place.id === 'string' && isCoordinate(place)
-  );
-  if (validPlaces.length !== places.length) {
-    return res.status(400).json({ error: 'Every place needs an id and valid coordinates' });
-  }
-  if (places.length === 0) {
-    return res.json({ routesToAttraction: {}, routesFromUser: {} });
-  }
-
-  try {
-    const attractionElements = await fetchGoogleRouteMatrix(
-      validPlaces,
-      [attraction]
-    );
-    const routesToAttraction = {};
-    for (const element of attractionElements) {
-      const place = validPlaces[element.originIndex];
-      if (place) routesToAttraction[place.id] = routeSummary(element);
-    }
-
-    let routesFromUser = {};
-    if (userLocation) {
-      const userElements = await fetchGoogleRouteMatrix(
-        [userLocation],
-        validPlaces
-      );
-      routesFromUser = Object.fromEntries(
-        userElements.map((element) => {
-          const place = validPlaces[element.destinationIndex];
-          return [place?.id, routeSummary(element)];
-        }).filter(([id]) => id)
-      );
-    }
-
-    return res.json({ routesToAttraction, routesFromUser });
-  } catch (error) {
-    return res.status(502).json({
-      error: error.message || 'Could not calculate driving distances',
-    });
   }
 });
 
@@ -2749,6 +2393,117 @@ app.delete('/api/users/:email', async (req, res) => {
   await Promise.all([removeUser(session.email), removeRegistrationChallenge(session.email)]);
   revokeUserSessions(session.email);
   return res.json({ ok: true });
+});
+
+function getFeatureAccount(req, res) {
+  const session = requireAccountOwner(req, res);
+  if (!session) return null;
+  return session;
+}
+
+for (const [route, field, fallback, typeName] of [
+  ['expense-groups', 'expenseGroups', [], 'array'],
+  ['packing-lists', 'packingLists', [], 'array'],
+  ['eco-profile', 'ecoProfile', {}, 'object'],
+]) {
+  app.get(`/api/users/:email/${route}`, async (req, res) => {
+    const session = getFeatureAccount(req, res);
+    if (!session) return;
+    const user = await getUser(session.email);
+    if (!user) return res.status(404).json({ errors: { email: 'No account found.' } });
+    return res.json({ [field === 'expenseGroups' ? 'groups' : field === 'packingLists' ? 'lists' : 'profile']: user[field] ?? fallback });
+  });
+  app.put(`/api/users/:email/${route}`, async (req, res) => {
+    const session = getFeatureAccount(req, res);
+    if (!session) return;
+    const user = await getUser(session.email);
+    if (!user) return res.status(404).json({ errors: { email: 'No account found.' } });
+    const bodyKey = field === 'expenseGroups' ? 'groups' : field === 'packingLists' ? 'lists' : 'profile';
+    const value = req.body?.[bodyKey];
+    const valid = typeName === 'array'
+      ? Array.isArray(value)
+      : value && typeof value === 'object' && !Array.isArray(value);
+    if (!valid) return res.status(400).json({ errors: { [bodyKey]: `${bodyKey} must be ${typeName === 'array' ? 'an array' : 'an object'}.` } });
+    user[field] = value;
+    await saveUser(user);
+    await recordAuditEvent({ action: `${route}.saved`, actorEmail: user.email, targetEmail: user.email });
+    return res.json({ [bodyKey]: user[field] });
+  });
+}
+
+app.post('/api/travel-lens/identify', async (req, res) => {
+  const session = requireUser(req, res);
+  if (!session) return;
+  if (String(req.body?.email || '').trim().toLowerCase() !== session.email) {
+    return res.status(403).json({ errors: { form: 'You can only identify landmarks for your own account.' } });
+  }
+  const imageBase64 = String(req.body?.imageBase64 || '').replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/, '');
+  if (!imageBase64 || imageBase64.length > 10_500_000 || !/^[A-Za-z0-9+/]+={0,2}$/.test(imageBase64)) {
+    return res.status(400).json({ errors: { imageBase64: 'Provide a valid image smaller than 8 MB.' } });
+  }
+  if (!OPENAI_API_KEY) {
+    return res.status(503).json({ error: 'Landmark recognition is not configured. Set OPENAI_API_KEY on the backend.' });
+  }
+  const catalogue = (Array.isArray(req.body?.catalogue) ? req.body.catalogue : [])
+    .slice(0, 80)
+    .filter((item) => item && typeof item.name === 'string')
+    .map((item) => ({
+      id: String(item.id || '').slice(0, 120),
+      name: item.name.slice(0, 160),
+      location: String(item.location || '').slice(0, 160),
+      description: String(item.description || '').slice(0, 500),
+    }));
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 45_000);
+    let response;
+    try {
+      response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify({
+          model: OPENAI_VISION_MODEL,
+          response_format: { type: 'json_object' },
+          messages: [{
+            role: 'user',
+            content: [
+              { type: 'text', text: `Identify the landmark in this image and match it to this South African attraction catalogue where possible: ${JSON.stringify(catalogue)}. For an exact catalogue match, return its exact id. Return JSON only with keys status (identified or not_found), match (object with id, name, location, description, facts array, visitorInfo, category, or null), possibleMatches (array), confidence (0 to 1), and message. If uncertain, use not_found and explain briefly. Do not invent visitor details.` },
+              { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${imageBase64}`, detail: 'low' } },
+            ],
+          }],
+        }),
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      console.error('Travel Lens provider error:', response.status, payload?.error?.message || 'Unknown provider error');
+      return res.status(response.status === 429 ? 503 : 502).json({ error: 'Landmark recognition is temporarily unavailable. Please try again.' });
+    }
+    let result;
+    try { result = JSON.parse(payload.choices?.[0]?.message?.content || '{}'); }
+    catch { throw new Error('Landmark recognition returned invalid data.'); }
+    const confidence = Number(result.confidence);
+    const candidateMatch = result.match && catalogue.find((item) =>
+      (result.match.id && item.id === String(result.match.id)) ||
+      (item.name.toLowerCase() === String(result.match.name || '').trim().toLowerCase())
+    );
+    const match = result.status === 'identified' && result.match && typeof result.match === 'object'
+      ? { ...(candidateMatch || {}), ...result.match, ...(candidateMatch ? { id: candidateMatch.id, name: candidateMatch.name, location: candidateMatch.location, description: candidateMatch.description } : {}) }
+      : null;
+    return res.json({
+      status: match ? 'identified' : 'not_found',
+      match,
+      possibleMatches: Array.isArray(result.possibleMatches) ? result.possibleMatches.slice(0, 5) : [],
+      confidence: Number.isFinite(confidence) ? Math.min(1, Math.max(0, confidence)) : 0,
+      message: String(result.message || ''),
+    });
+  } catch (error) {
+    console.error('Travel Lens identification failed:', error.message || error);
+    return res.status(error.name === 'AbortError' ? 504 : 502).json({ error: error.name === 'AbortError' ? 'Landmark recognition timed out. Please try again.' : 'Could not process this image.' });
+  }
 });
 
 app.get('/api/users/:email/plan', async (req, res) => {

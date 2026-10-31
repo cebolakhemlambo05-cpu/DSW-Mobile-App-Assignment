@@ -49,8 +49,7 @@ const AccomCard_1 = __importDefault(require("../components/AccomCard"));
 const ActivityCard_1 = __importDefault(require("../components/ActivityCard"));
 const AccomDetailModal_1 = __importDefault(require("../components/AccomDetailModal"));
 const WeatherForecast_1 = __importDefault(require("../components/WeatherForecast"));
-const NearbyPlaces_1 = __importDefault(require("../components/NearbyPlaces"));
-const DemoBookingModal_1 = __importDefault(require("../components/DemoBookingModal"));
+const BookingModal_1 = __importDefault(require("../components/BookingModal"));
 const CheckInDatePicker_1 = __importDefault(require("../components/CheckInDatePicker"));
 const placesService_1 = require("../services/placesService");
 function dateAfterDays(days) {
@@ -66,6 +65,15 @@ function addDaysToDate(isoDate, days) {
 function nightsBetween(checkIn, checkOut) {
     return Math.max(1, Math.round((new Date(`${checkOut}T00:00:00`) - new Date(`${checkIn}T00:00:00`)) / 86400000));
 }
+function distanceBetweenCoordinates(origin, destination) {
+    const radians = (degrees) => degrees * Math.PI / 180;
+    const latitudeDelta = radians(destination.latitude - origin.latitude);
+    const longitudeDelta = radians(destination.longitude - origin.longitude);
+    const value = Math.sin(latitudeDelta / 2) ** 2 +
+        Math.cos(radians(origin.latitude)) * Math.cos(radians(destination.latitude)) *
+        Math.sin(longitudeDelta / 2) ** 2;
+    return 6371 * 2 * Math.atan2(Math.sqrt(value), Math.sqrt(1 - value));
+}
 function AttractionScreen({ attraction, onBack, onAddToPlan, onGoToPlan, existingEntry, currentUser, }) {
     var _a, _b;
     const weatherLatitude = attraction.map?.latitude ?? attraction.latitude;
@@ -79,6 +87,8 @@ function AttractionScreen({ attraction, onBack, onAddToPlan, onGoToPlan, existin
     const [accommodations, setAccommodations] = (0, react_1.useState)([]);
     const [lodgingLoading, setLodgingLoading] = (0, react_1.useState)(false);
     const [lodgingError, setLodgingError] = (0, react_1.useState)("");
+    const [userLocation, setUserLocation] = (0, react_1.useState)(null);
+    const [locationMessage, setLocationMessage] = (0, react_1.useState)("");
     const [hotelWarning, setHotelWarning] = (0, react_1.useState)("");
     const [photoWarning, setPhotoWarning] = (0, react_1.useState)("");
     const [showDemoBooking, setShowDemoBooking] = (0, react_1.useState)(false);
@@ -90,6 +100,24 @@ function AttractionScreen({ attraction, onBack, onAddToPlan, onGoToPlan, existin
     const [checkInDate, setCheckInDate] = (0, react_1.useState)(() => existingEntry?.checkInDate || existingEntry?.booking?.checkIn || dateAfterDays(7));
     const [nights, setNights] = (0, react_1.useState)(Math.min(30, Math.max(1, Number(existingEntry?.stayNights || existingEntry?.booking?.nights || 2))));
     const checkOutDate = addDaysToDate(checkInDate, nights);
+    const requestUserLocation = () => {
+      const geolocation = globalThis.navigator?.geolocation;
+      if (!geolocation) {
+        setLocationMessage("Location is unavailable in this browser. Allow location access and try again.");
+        return;
+      }
+      setLocationMessage("Getting your location...");
+      geolocation.getCurrentPosition(
+        ({ coords }) => {
+          setUserLocation({ latitude: coords.latitude, longitude: coords.longitude });
+          setLocationMessage("");
+        },
+        (error) => setLocationMessage(error.code === 1
+          ? "Location permission was denied. Allow location access in your browser settings to see distances."
+          : "Could not get your location. Check your device settings and try again."),
+        { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
+      );
+    };
     (0, react_1.useEffect)(() => {
       setAccommodations([]);
       setLodgingError("");
@@ -313,19 +341,16 @@ function AttractionScreen({ attraction, onBack, onAddToPlan, onGoToPlan, existin
 
         <react_native_1.View style={styles.content}>
           <react_native_1.Text style={styles.description}>{attraction.description}</react_native_1.Text>
+          <react_native_1.View style={styles.dataNotice}>
+            <react_native_1.Text style={styles.dataNoticeTitle}>About this information</react_native_1.Text>
+            <react_native_1.Text style={styles.dataNoticeText}>Reference: {attraction.source || "Not provided"}. Catalogue activity prices are planning estimates unless an official rate and source are shown. Confirm details with the operator. Live accommodation offers are requested for your selected dates and room setup; rates and availability can change.</react_native_1.Text>
+          </react_native_1.View>
 
           <WeatherForecast_1.default latitude={weatherLatitude} longitude={weatherLongitude}/>
 
           <react_native_1.Pressable accessibilityRole="button" onPress={openDirections} style={styles.directionsBtn}>
             <react_native_1.Text style={styles.directionsBtnText}>Get directions in Google Maps</react_native_1.Text>
           </react_native_1.Pressable>
-
-          <NearbyPlaces_1.default
-            latitude={weatherLatitude}
-            longitude={weatherLongitude}
-            attractionName={attraction.name}
-            attractionLocation={attraction.location}
-          />
 
           <BudgetSlider_1.default value={budget} onChange={setBudget} label="Your budget per night"/>
 
@@ -371,6 +396,10 @@ function AttractionScreen({ attraction, onBack, onAddToPlan, onGoToPlan, existin
           </react_native_1.View>
 
           {tab === "stays" && (<react_native_1.View style={{ gap: 8 }}>
+              <react_native_1.Pressable accessibilityRole="button" onPress={requestUserLocation} style={styles.locationButton}>
+                <react_native_1.Text style={styles.locationButtonText}>{userLocation ? "Refresh my location" : "Show distance from my location"}</react_native_1.Text>
+              </react_native_1.Pressable>
+              {!!locationMessage && <react_native_1.Text style={styles.locationMessage}>{locationMessage}</react_native_1.Text>}
               <react_native_1.Text style={styles.hintText}>
                 {sortedAccoms.length} stays · Prices sorted within each currency · Tap a card for details
               </react_native_1.Text>
@@ -399,7 +428,7 @@ function AttractionScreen({ attraction, onBack, onAddToPlan, onGoToPlan, existin
               {!lodgingLoading && sortedAccoms.length === 0 && !lodgingError && (<react_native_1.View style={{ paddingVertical: 30, alignItems: "center" }}>
                   <react_native_1.Text style={styles.emptyHint}>No nearby accommodations were found. Try another attraction or check your hotel provider configuration.</react_native_1.Text>
                 </react_native_1.View>)}
-              {sortedAccoms.map((ac) => (<AccomCard_1.default key={ac.id} accom={ac} selected={selectedAccom === ac.id} overBudget={ac.pricePerNight != null && (!ac.currency || String(ac.currency).toUpperCase() === "ZAR") && ac.pricePerNight > budget} onView={() => setViewingAccom(ac)} onSelect={() => setSelectedAccom(selectedAccom === ac.id ? undefined : ac.id)} onDirections={() => openAccommodationDirections(ac)}/>))}
+              {sortedAccoms.map((ac) => (<react_native_1.View key={ac.id} style={{ gap: 4 }}><AccomCard_1.default accom={ac} selected={selectedAccom === ac.id} overBudget={ac.pricePerNight != null && (!ac.currency || String(ac.currency).toUpperCase() === "ZAR") && ac.pricePerNight > budget} onView={() => setViewingAccom(ac)} onSelect={() => setSelectedAccom(selectedAccom === ac.id ? undefined : ac.id)} onDirections={() => openAccommodationDirections(ac)}/>{userLocation && (ac.latitude != null && ac.longitude != null && Number.isFinite(Number(ac.latitude)) && Number.isFinite(Number(ac.longitude)) ? <react_native_1.Text style={styles.locationMessage}>Approx. {distanceBetweenCoordinates(userLocation, { latitude: Number(ac.latitude), longitude: Number(ac.longitude) }).toFixed(1)} km from your location</react_native_1.Text> : <react_native_1.Text style={styles.locationMessage}>Location distance unavailable for this accommodation.</react_native_1.Text>)}</react_native_1.View>))}
             </react_native_1.View>)}
 
           {tab === "activities" && (<react_native_1.View style={{ gap: 8 }}>
@@ -414,7 +443,7 @@ function AttractionScreen({ attraction, onBack, onAddToPlan, onGoToPlan, existin
       {(selectedAccomData || selectedActivities.size > 0) && (<react_native_1.View style={styles.stickyCta}>
           <react_native_1.View style={styles.stickyRow}>
             <react_native_1.View>
-              <react_native_1.Text style={styles.dayTotalLabel}>{!selectedAccomData ? "Activities total" : totalIsPartial ? "Current trip estimate" : "Trip total"}</react_native_1.Text>
+              <react_native_1.Text style={styles.dayTotalLabel}>{!selectedAccomData ? "Activity estimate" : totalIsPartial ? "Current trip estimate" : "Estimated trip total"}</react_native_1.Text>
               <react_native_1.Text style={styles.dayTotalValue}>{totalIsPartial && selectedActivities.size === 0 ? "Rate unavailable" : (0, format_1.fmt)(totalCost)}</react_native_1.Text>
             </react_native_1.View>
             <react_native_1.View style={{ alignItems: "flex-end" }}>
@@ -434,7 +463,7 @@ function AttractionScreen({ attraction, onBack, onAddToPlan, onGoToPlan, existin
 
       <AccomDetailModal_1.default visible={!!viewingAccom} accom={viewingAccom} attractionName={attraction.name} attractionLocation={attraction.location} photoWarning={photoWarning} isSelected={!!viewingAccom && selectedAccom === viewingAccom.id} onClose={() => setViewingAccom(null)} onSelect={() => viewingAccom && setSelectedAccom(selectedAccom === viewingAccom.id ? undefined : viewingAccom.id)} onDirections={() => viewingAccom && openAccommodationDirections(viewingAccom)}/>
       <CheckInDatePicker_1.default visible={showCheckInPicker} selectedDate={checkInDate} onSelect={setCheckInDate} onClose={() => setShowCheckInPicker(false)}/>
-      <DemoBookingModal_1.default
+      <BookingModal_1.default
         visible={showDemoBooking}
         accommodation={selectedAccomData}
         attractionName={attraction.name}
@@ -466,8 +495,14 @@ const styles = react_native_1.StyleSheet.create({
     heroLocation: { fontSize: 12, color: "rgba(255,255,255,0.7)", marginTop: 3 },
     content: { paddingHorizontal: 16, paddingTop: 16, gap: 16 },
     description: { fontSize: 14, lineHeight: 20, color: theme_1.colors.charcoal, opacity: 0.75 },
+    dataNotice: { padding: 13, borderRadius: 13, backgroundColor: theme_1.colors.ivory, gap: 4 },
+    dataNoticeTitle: { color: theme_1.colors.savanna, fontSize: 12, fontFamily: theme_1.fonts.bodySemiBold },
+    dataNoticeText: { color: theme_1.colors.charcoal, opacity: 0.7, fontSize: 11, lineHeight: 16 },
     directionsBtn: { paddingVertical: 14, paddingHorizontal: 16, borderRadius: 14, backgroundColor: theme_1.colors.savanna, alignItems: "center" },
     directionsBtnText: { fontSize: 14, fontFamily: theme_1.fonts.bodySemiBold, color: theme_1.colors.ivory },
+    locationButton: { alignSelf: "flex-start", paddingHorizontal: 15, paddingVertical: 11, borderRadius: 12, backgroundColor: theme_1.colors.sand },
+    locationButtonText: { color: theme_1.colors.savanna, fontFamily: theme_1.fonts.bodySemiBold, fontSize: 12 },
+    locationMessage: { color: theme_1.colors.charcoal, opacity: 0.65, fontSize: 11, lineHeight: 16 },
     tabRow: { flexDirection: "row", borderRadius: 14, overflow: "hidden", backgroundColor: theme_1.colors.ivory, borderWidth: 1, borderColor: "rgba(62,50,38,0.1)" },
     tabBtn: { flex: 1, paddingVertical: 11, alignItems: "center" },
     tabText: { fontSize: 13, fontFamily: theme_1.fonts.bodySemiBold },

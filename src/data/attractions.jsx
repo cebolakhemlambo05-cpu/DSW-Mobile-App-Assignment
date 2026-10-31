@@ -55,6 +55,11 @@ const makeActivity = ({
   description,
   duration,
   pricePerPerson,
+  priceNote = pricePerPerson === 0
+    ? "No separate activity fee listed; entry and extra costs may apply."
+    : undefined,
+  sourceUrl,
+  priceCheckedAt,
   bookingRequired = false,
   source
 }) => ({
@@ -63,6 +68,9 @@ const makeActivity = ({
   description,
   duration,
   pricePerPerson,
+  priceNote,
+  sourceUrl,
+  priceCheckedAt,
   localFav: false,
   peakDouble: false,
   bookingRequired,
@@ -71,8 +79,7 @@ const makeActivity = ({
 
 const booking = (provider) => ({
   bookingRequired: true,
-  availabilityStatus: "live-check",
-  availabilityCheckedAt: "2026-09-09",
+  availabilityStatus: "check-with-provider",
   bookingProvider: provider,
   bookingReference: null
 });
@@ -185,8 +192,8 @@ const attractions = [
 
     dataQuality: {
       price: "planning-value",
-      rating: "current-planning-rating",
-      availability: "live-check",
+      rating: "planning-rating",
+      availability: "check-with-provider",
       image: "replace-with-licensed-image"
     }
   },
@@ -252,7 +259,10 @@ const attractions = [
         description:
           "Scenic cableway experience providing access to the mountain summit.",
         duration: "1–2 hours",
-        pricePerPerson: 450,
+        pricePerPerson: 475,
+        priceNote: "Adult online return ticket; rate applies 1 July 2026–30 June 2027.",
+        sourceUrl: "https://www.tablemountain.net/plan-your-visit/ticket-prices/",
+        priceCheckedAt: "2026-10-31",
         bookingRequired: true,
         source: "Table Mountain Cableway"
       })
@@ -268,9 +278,9 @@ const attractions = [
     ),
 
     dataQuality: {
-      price: "verified-accommodation-price",
-      rating: "current-planning-rating",
-      availability: "live-check",
+      price: "planning-value",
+      rating: "planning-rating",
+      availability: "check-with-provider",
       image: "replace-with-licensed-image"
     }
   },
@@ -355,7 +365,7 @@ const attractions = [
     dataQuality: {
       price: "planning-value",
       rating: "planning-rating",
-      availability: "live-check",
+      availability: "check-with-provider",
       image: "replace-with-licensed-image"
     }
   },
@@ -439,9 +449,9 @@ const attractions = [
     ),
 
     dataQuality: {
-      price: "verified-Storms-River-price",
+      price: "planning-value",
       rating: "planning-rating",
-      availability: "live-check",
+      availability: "check-with-provider",
       image: "replace-with-licensed-image"
     }
   },
@@ -527,7 +537,7 @@ const attractions = [
     dataQuality: {
       price: "planning-value",
       rating: "planning-rating",
-      availability: "live-check",
+      availability: "check-with-provider",
       image: "replace-with-licensed-image"
     }
   },
@@ -602,7 +612,7 @@ const attractions = [
     dataQuality: {
       price: "planning-value",
       rating: "planning-rating",
-      availability: "live-check",
+      availability: "check-with-provider",
       image: "replace-with-licensed-image"
     }
   },
@@ -685,7 +695,7 @@ const attractions = [
     dataQuality: {
       price: "planning-value",
       rating: "planning-rating",
-      availability: "live-check",
+      availability: "check-with-provider",
       image: "replace-with-licensed-image"
     }
   },
@@ -772,7 +782,7 @@ const attractions = [
     dataQuality: {
       price: "planning-value",
       rating: "planning-rating",
-      availability: "live-check",
+      availability: "check-with-provider",
       image: "replace-with-licensed-image"
     }
   },
@@ -856,7 +866,7 @@ const attractions = [
     dataQuality: {
       price: "planning-value",
       rating: "planning-rating",
-      availability: "live-check",
+      availability: "check-with-provider",
       image: "replace-with-licensed-image"
     }
   },
@@ -942,7 +952,7 @@ const attractions = [
     dataQuality: {
       price: "planning-value",
       rating: "planning-rating",
-      availability: "live-check",
+      availability: "check-with-provider",
       image: "replace-with-licensed-image"
     }
   },
@@ -1025,7 +1035,7 @@ const attractions = [
     dataQuality: {
       price: "planning-value",
       rating: "planning-rating",
-      availability: "live-check",
+      availability: "check-with-provider",
       image: "replace-with-licensed-image"
     }
   },
@@ -1106,9 +1116,9 @@ const attractions = [
     ),
 
     dataQuality: {
-      price: "verified-campsite-price",
+      price: "planning-value",
       rating: "planning-rating",
-      availability: "live-check",
+      availability: "check-with-provider",
       image: "replace-with-licensed-image"
     }
   },
@@ -1193,7 +1203,7 @@ const attractions = [
     dataQuality: {
       price: "planning-value",
       rating: "planning-rating",
-      availability: "live-check",
+      availability: "check-with-provider",
       image: "replace-with-licensed-image"
     }
   },
@@ -1277,7 +1287,7 @@ const attractions = [
     dataQuality: {
       price: "planning-value",
       rating: "planning-rating",
-      availability: "live-check",
+      availability: "check-with-provider",
       image: "replace-with-licensed-image"
     }
   },
@@ -1358,9 +1368,9 @@ const attractions = [
     ),
 
     dataQuality: {
-      price: "verified-chalet-price",
+      price: "planning-value",
       rating: "planning-rating",
-      availability: "live-check",
+      availability: "check-with-provider",
       image: "replace-with-licensed-image"
     }
   },
@@ -1442,7 +1452,7 @@ const attractions = [
     dataQuality: {
       price: "planning-value",
       rating: "planning-rating",
-      availability: "live-check",
+      availability: "check-with-provider",
       image: "replace-with-licensed-image"
     }
   },
@@ -1527,7 +1537,7 @@ const attractions = [
     dataQuality: {
       price: "planning-value",
       rating: "planning-rating",
-      availability: "live-check",
+      availability: "check-with-provider",
       image: "replace-with-licensed-image"
     }
   },
@@ -1607,9 +1617,9 @@ const attractions = [
     ),
 
     dataQuality: {
-      price: "verified-SANParks-accommodation-price",
+      price: "planning-value",
       rating: "planning-rating",
-      availability: "live-check",
+      availability: "check-with-provider",
       image: "replace-with-licensed-image"
     }
   },
@@ -1691,7 +1701,7 @@ const attractions = [
     dataQuality: {
       price: "planning-value",
       rating: "planning-rating",
-      availability: "live-check",
+      availability: "check-with-provider",
       image: "replace-with-licensed-image"
     }
   },
@@ -1774,7 +1784,7 @@ const attractions = [
     dataQuality: {
       price: "planning-value",
       rating: "planning-rating",
-      availability: "live-check",
+      availability: "check-with-provider",
       image: "replace-with-licensed-image"
     }
   },
@@ -1858,7 +1868,7 @@ const attractions = [
     dataQuality: {
       price: "planning-value",
       rating: "planning-rating",
-      availability: "live-check",
+      availability: "check-with-provider",
       image: "replace-with-licensed-image"
     }
   },
@@ -1942,7 +1952,7 @@ const attractions = [
     dataQuality: {
       price: "planning-value",
       rating: "planning-rating",
-      availability: "live-check",
+      availability: "check-with-provider",
       image: "replace-with-licensed-image"
     }
   },
@@ -2030,7 +2040,7 @@ const attractions = [
     dataQuality: {
       price: "planning-value",
       rating: "planning-rating",
-      availability: "live-check",
+      availability: "check-with-provider",
       image: "replace-with-licensed-image"
     }
   },
@@ -2116,7 +2126,7 @@ const attractions = [
     dataQuality: {
       price: "planning-value",
       rating: "planning-rating",
-      availability: "live-check",
+      availability: "check-with-provider",
       image: "replace-with-licensed-image"
     }
   },
@@ -2200,7 +2210,7 @@ const attractions = [
     dataQuality: {
       price: "planning-value",
       rating: "planning-rating",
-      availability: "live-check",
+      availability: "check-with-provider",
       image: "replace-with-licensed-image"
     }
   },
@@ -2282,9 +2292,9 @@ const attractions = [
     ),
 
     dataQuality: {
-      price: "verified-Limpopo-Forest-price",
+      price: "planning-value",
       rating: "planning-rating",
-      availability: "live-check",
+      availability: "check-with-provider",
       image: "replace-with-licensed-image"
     }
   },
@@ -2367,7 +2377,7 @@ const attractions = [
     dataQuality: {
       price: "planning-value",
       rating: "planning-rating",
-      availability: "live-check",
+      availability: "check-with-provider",
       image: "replace-with-licensed-image"
     }
   },
@@ -2451,7 +2461,7 @@ const attractions = [
     dataQuality: {
       price: "planning-value",
       rating: "planning-rating",
-      availability: "live-check",
+      availability: "check-with-provider",
       image: "replace-with-licensed-image"
     }
   },
@@ -2535,7 +2545,7 @@ const attractions = [
     dataQuality: {
       price: "planning-value",
       rating: "planning-rating",
-      availability: "live-check",
+      availability: "check-with-provider",
       image: "replace-with-licensed-image"
     }
   },
@@ -2618,7 +2628,7 @@ const attractions = [
     dataQuality: {
       price: "planning-value",
       rating: "planning-rating",
-      availability: "live-check",
+      availability: "check-with-provider",
       image: "replace-with-licensed-image"
     }
   },
@@ -2698,9 +2708,9 @@ const attractions = [
     ),
 
     dataQuality: {
-      price: "verified-SANParks-price",
+      price: "planning-value",
       rating: "planning-rating",
-      availability: "live-check",
+      availability: "check-with-provider",
       image: "replace-with-licensed-image"
     }
   },
@@ -2782,7 +2792,7 @@ const attractions = [
     dataQuality: {
       price: "planning-value",
       rating: "planning-rating",
-      availability: "live-check",
+      availability: "check-with-provider",
       image: "replace-with-licensed-image"
     }
   },
@@ -2863,9 +2873,9 @@ const attractions = [
     ),
 
     dataQuality: {
-      price: "verified-Twee-Rivieren-price",
+      price: "planning-value",
       rating: "planning-rating",
-      availability: "live-check",
+      availability: "check-with-provider",
       image: "replace-with-licensed-image"
     }
   },
@@ -2948,7 +2958,7 @@ const attractions = [
     dataQuality: {
       price: "planning-value",
       rating: "planning-rating",
-      availability: "live-check",
+      availability: "check-with-provider",
       image: "replace-with-licensed-image"
     }
   },
@@ -3029,9 +3039,9 @@ const attractions = [
     ),
 
     dataQuality: {
-      price: "verified-low-season-price",
+      price: "planning-value",
       rating: "planning-rating",
-      availability: "live-check",
+      availability: "check-with-provider",
       image: "replace-with-licensed-image"
     }
   },
@@ -3112,9 +3122,9 @@ const attractions = [
     ),
 
     dataQuality: {
-      price: "verified-Bontle-price",
+      price: "planning-value",
       rating: "planning-rating",
-      availability: "live-check",
+      availability: "check-with-provider",
       image: "replace-with-licensed-image"
     }
   },
@@ -3195,9 +3205,9 @@ const attractions = [
     ),
 
     dataQuality: {
-      price: "verified-Rock-Chalet-price",
+      price: "planning-value",
       rating: "planning-rating",
-      availability: "live-check",
+      availability: "check-with-provider",
       image: "replace-with-licensed-image"
     }
   },
@@ -3276,9 +3286,9 @@ const attractions = [
     ),
 
     dataQuality: {
-      price: "verified-campsite-price",
+      price: "planning-value",
       rating: "planning-rating",
-      availability: "live-check",
+      availability: "check-with-provider",
       image: "replace-with-licensed-image"
     }
   },
@@ -3361,7 +3371,7 @@ const attractions = [
     dataQuality: {
       price: "planning-value",
       rating: "planning-rating",
-      availability: "live-check",
+      availability: "check-with-provider",
       image: "replace-with-licensed-image"
     }
   },
@@ -3446,7 +3456,7 @@ const attractions = [
     dataQuality: {
       price: "planning-value",
       rating: "planning-rating",
-      availability: "live-check",
+      availability: "check-with-provider",
       image: "replace-with-licensed-image"
     }
   },
@@ -3532,7 +3542,7 @@ const attractions = [
     dataQuality: {
       price: "planning-value",
       rating: "planning-rating",
-      availability: "live-check",
+      availability: "check-with-provider",
       image: "replace-with-licensed-image"
     }
   },
@@ -3615,7 +3625,7 @@ const attractions = [
     dataQuality: {
       price: "planning-value",
       rating: "planning-rating",
-      availability: "live-check",
+      availability: "check-with-provider",
       image: "replace-with-licensed-image"
     }
   },
@@ -3701,7 +3711,7 @@ const attractions = [
     dataQuality: {
       price: "planning-value",
       rating: "planning-rating",
-      availability: "live-check",
+      availability: "check-with-provider",
       image: "replace-with-licensed-image"
     }
   },
@@ -3785,7 +3795,7 @@ const attractions = [
     dataQuality: {
       price: "planning-value",
       rating: "planning-rating",
-      availability: "live-check",
+      availability: "check-with-provider",
       image: "replace-with-licensed-image"
     }
   },
@@ -3870,7 +3880,7 @@ const attractions = [
     dataQuality: {
       price: "planning-value",
       rating: "planning-rating",
-      availability: "live-check",
+      availability: "check-with-provider",
       image: "replace-with-licensed-image"
     }
   }

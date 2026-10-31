@@ -22,7 +22,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.cebolakhemlambo.allinoneplanner",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "Allow ALL-IN-ONE PLANNER to take photos of landmarks for Travel Lens."
       }
     },
     "android": {
@@ -32,7 +33,8 @@
         "backgroundColor": "#E8DCC4"
       },
       "permissions": [
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA"
       ]
     },
     "plugins": [
@@ -40,7 +42,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow ALL-IN-ONE PLANNER to use a profile photo you choose."
+          "photosPermission": "Allow ALL-IN-ONE PLANNER to use a profile photo you choose.",
+          "cameraPermission": "Allow ALL-IN-ONE PLANNER to take photos of landmarks for Travel Lens."
         }
       ]
     ],

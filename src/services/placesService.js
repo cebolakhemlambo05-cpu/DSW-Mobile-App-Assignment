@@ -176,91 +176,6 @@ export async function sendBookingConfirmationEmail(booking) {
   return data;
 }
 
-export async function fetchNearbyPlaces({
-  latitude,
-  longitude,
-  category,
-  signal,
-} = {}) {
-  const url = new URL(`${API_BASE}/nearby-places`);
-  if (Number.isFinite(latitude)) url.searchParams.set("lat", String(latitude));
-  if (Number.isFinite(longitude)) url.searchParams.set("lng", String(longitude));
-  url.searchParams.set("category", String(category || "all"));
-
-  const timeoutController = new AbortController();
-  const timeoutId = setTimeout(() => timeoutController.abort(), 45000);
-  const abortRequest = () => timeoutController.abort();
-  if (signal) signal.addEventListener("abort", abortRequest, { once: true });
-
-  try {
-    const response = await fetch(url.toString(), { signal: timeoutController.signal });
-    const data = await readApiJson(response, "Nearby places");
-    if (!response.ok) {
-      throw new Error(data?.error || `Nearby places request failed (HTTP ${response.status}).`);
-    }
-    if (!Array.isArray(data.places)) {
-      throw new Error("Nearby places service returned an invalid response.");
-    }
-    return {
-      places: data.places,
-      warning: typeof data.warning === "string" ? data.warning : "",
-    };
-  } catch (error) {
-    if (error?.name === "AbortError") {
-      if (signal?.aborted) throw error;
-      throw new Error("Nearby places request timed out. Please try again.");
-    }
-    if (error instanceof TypeError) {
-      throw new Error(`Could not reach the nearby places service at ${API_BASE}. (${error.message})`);
-    }
-    throw error;
-  } finally {
-    clearTimeout(timeoutId);
-    if (signal) signal.removeEventListener("abort", abortRequest);
-  }
-}
-
-export async function fetchDrivingDistances({
-  places,
-  attraction,
-  userLocation,
-  signal,
-} = {}) {
-  const timeoutController = new AbortController();
-  const timeoutId = setTimeout(() => timeoutController.abort(), REQUEST_TIMEOUT_MS);
-  const abortRequest = () => timeoutController.abort();
-  if (signal) signal.addEventListener("abort", abortRequest, { once: true });
-
-  try {
-    const response = await fetch(`${API_BASE}/route-distances`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ places, attraction, userLocation }),
-      signal: timeoutController.signal,
-    });
-    const data = await readApiJson(response, "Routes API driving distance");
-    if (!response.ok) {
-      throw new Error(data?.error || `Driving distance request failed (HTTP ${response.status}).`);
-    }
-    if (!data.routesToAttraction || !data.routesFromUser) {
-      throw new Error("Routes service returned invalid driving distances.");
-    }
-    return data;
-  } catch (error) {
-    if (error?.name === "AbortError") {
-      if (signal?.aborted) throw error;
-      throw new Error("Driving distance request timed out. Please try again.");
-    }
-    if (error instanceof TypeError) {
-      throw new Error(`Could not reach the Routes service at ${API_BASE}. (${error.message})`);
-    }
-    throw error;
-  } finally {
-    clearTimeout(timeoutId);
-    if (signal) signal.removeEventListener("abort", abortRequest);
-  }
-}
-
 export async function fetchWeatherForecast({
   latitude,
   longitude,
@@ -417,6 +332,34 @@ async function accountRequest(path, { method = 'GET', body, adminToken } = {}) {
     );
     error.errors = data?.errors || { form: error.message };
     error.status = response.status;
+    throw error;
+  }
+  return data;
+}
+
+// Authenticated JSON request helper for feature-specific service modules.
+export async function apiRequest(path, { method = 'GET', body } = {}) {
+  const normalizedPath = String(path || '').replace(/^\/api(?=\/)/, '');
+  let response;
+  let data;
+  try {
+    const session = await restoreActiveSession();
+    response = await fetch(`${API_BASE}${normalizedPath}`, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(session?.accessToken ? { Authorization: `Bearer ${session.accessToken}` } : {}),
+      },
+      ...(body === undefined ? {} : { body }),
+    });
+    data = await response.json();
+  } catch (error) {
+    throw new Error(`Could not reach the account server at ${API_BASE}. Start node server.js and try again.`);
+  }
+  if (!response.ok) {
+    const error = new Error(data?.errors?.form || data?.error || 'Account request failed.');
+    error.status = response.status;
+    error.errors = data?.errors || { form: error.message };
     throw error;
   }
   return data;

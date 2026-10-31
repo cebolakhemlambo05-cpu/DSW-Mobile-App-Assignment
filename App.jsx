@@ -22,6 +22,7 @@ import RegisterScreen from "./src/screens/RegisterScreen";
 import ForgotPasswordScreen from "./src/screens/ForgotPasswordScreen";
 import HomeScreen from "./src/screens/HomeScreen";
 import AttractionScreen from "./src/screens/AttractionScreen";
+import TravelLensScreen from "./src/screens/TravelLensScreen";
 import DayPlanScreen from "./src/screens/DayPlanScreen";
 import { isStrongPassword, normalizeEmail, validateEmail, validateName } from "./src/utils/validation";
 import {
@@ -645,6 +646,7 @@ function PlannerApp() {
               <HomeScreen
                 onSelect={selectAttraction}
                 onViewPlan={() => setScreen('dayplan')}
+                onViewTravelLens={() => setScreen('travelLens')}
                 planCount={dayPlan.length}
                 currentUser={currentUser}
                 syncNotice={syncNotice}
@@ -685,6 +687,16 @@ function PlannerApp() {
                 onClearAll={() => updatePlan([])}
                 onSelectAttraction={selectAttraction}
                 onGroupSizeChange={updatePlanGroupSize}
+              />
+            )}
+            {screen === 'travelLens' && (
+              <TravelLensScreen
+                user={currentUser}
+                onBack={() => setScreen('home')}
+                onSelectAttraction={(attraction) => {
+                  setSelectedAttraction(attraction);
+                  setScreen('attraction');
+                }}
               />
             )}
             {screen === 'privacy' && (
