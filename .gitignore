@@ -28,6 +28,8 @@ dist-local-data/
 web-build/
 
 # Native
+/android/
+/ios/
 *.jks
 *.p8
 *.p12

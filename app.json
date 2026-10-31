@@ -10,11 +10,6 @@
       "bundler": "metro",
       "output": "single"
     },
-    "splash": {
-      "image": "./assets/app-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#E8DCC4"
-    },
     "assetBundlePatterns": [
       "**/*"
     ],
@@ -33,7 +28,6 @@
         "backgroundColor": "#E8DCC4"
       },
       "permissions": [
-        "android.permission.RECORD_AUDIO",
         "android.permission.CAMERA"
       ]
     },
@@ -43,15 +37,35 @@
         "expo-image-picker",
         {
           "photosPermission": "Allow ALL-IN-ONE PLANNER to use a profile photo you choose.",
-          "cameraPermission": "Allow ALL-IN-ONE PLANNER to take photos of landmarks for Travel Lens."
+          "cameraPermission": "Allow ALL-IN-ONE PLANNER to take photos of landmarks for Travel Lens.",
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/app-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#E8DCC4"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": false,
+          "locationAlwaysPermission": false,
+          "locationWhenInUsePermission": "Allow ALL-IN-ONE PLANNER to calculate approximate distances to accommodations near your trip.",
+          "locationFullAccuracyPermission": false,
+          "motionUsagePermission": false
         }
       ]
     ],
     "extra": {
       "eas": {
-        "projectId": "1874b13d-27a2-4891-9f59-52f1aa6e362c"
+        "projectId": "2dd22ad1-2569-4755-ad42-a4ba222b3284"
       }
     },
-    "owner": "sfundo99"
+    "owner": "cebolakhe"
   }
 }

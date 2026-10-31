@@ -34,7 +34,9 @@ const sections = [
   {
     title: "External services",
     items: [
-      "Hotelbeds receives hotel codes, stay dates, room count and guests per room for availability searches. Nearby map and weather features can send attraction names or coordinates to Geoapify, Google Places or Routes, OpenStreetMap services and Open-Meteo. Currency conversion can use Frankfurter.",
+      "When you use Travel Lens, the landmark image and a catalogue of South African attractions are sent from the app through our API to OpenAI for identification. Do not submit images containing information you do not want processed by that service.",
+      "Hotelbeds receives the destination coordinates, stay dates, room count and guest count for accommodation searches. If Google Places photo lookup is configured for another hotel provider, the API may also send property names and locations to Google Places to find matching photos.",
+      "Attraction searches send your search terms to OpenStreetMap's Nominatim service. Weather forecasts send attraction coordinates to Open-Meteo. Foreign-currency accommodation prices may use Frankfurter exchange-rate data. The app uses your device location only after you request distance sorting; it calculates approximate distances on your device and does not send your location to our API.",
       "When a booking request email is sent, EmailJS receives the recipient, guest and property details, dates, room and activity totals, references and preferred payment method so it can deliver the email.",
       "These providers process requests under their own terms and privacy policies. The app's backend API keys are kept server-side.",
     ],
@@ -85,8 +87,8 @@ export default function PrivacyScreen({ onBack, onPrivacy, onAbout, onManageAcco
         </View>
 
         <View style={styles.noticeCard}>
-          <Text style={styles.noticeTitle}>Development connection</Text>
-          <Text style={styles.noticeBody}>Development connections may use HTTP, which does not encrypt traffic between your device and the local API. Use test data until the backend is deployed behind HTTPS.</Text>
+          <Text style={styles.noticeTitle}>Connection security</Text>
+          <Text style={styles.noticeBody}>The production app connects to its configured API over HTTPS. Local development may use HTTP, which does not encrypt traffic; use test data with local development servers.</Text>
         </View>
 
         {sections.map((section) => <InfoSection key={section.title} {...section} />)}

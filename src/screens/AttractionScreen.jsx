@@ -52,6 +52,7 @@ const WeatherForecast_1 = __importDefault(require("../components/WeatherForecast
 const BookingModal_1 = __importDefault(require("../components/BookingModal"));
 const CheckInDatePicker_1 = __importDefault(require("../components/CheckInDatePicker"));
 const placesService_1 = require("../services/placesService");
+const expo_location_1 = require("expo-location");
 function dateAfterDays(days) {
     const date = new Date();
     date.setDate(date.getDate() + days);
@@ -100,23 +101,25 @@ function AttractionScreen({ attraction, onBack, onAddToPlan, onGoToPlan, existin
     const [checkInDate, setCheckInDate] = (0, react_1.useState)(() => existingEntry?.checkInDate || existingEntry?.booking?.checkIn || dateAfterDays(7));
     const [nights, setNights] = (0, react_1.useState)(Math.min(30, Math.max(1, Number(existingEntry?.stayNights || existingEntry?.booking?.nights || 2))));
     const checkOutDate = addDaysToDate(checkInDate, nights);
-    const requestUserLocation = () => {
-      const geolocation = globalThis.navigator?.geolocation;
-      if (!geolocation) {
-        setLocationMessage("Location is unavailable in this browser. Allow location access and try again.");
-        return;
-      }
+    const requestUserLocation = async () => {
       setLocationMessage("Getting your location...");
-      geolocation.getCurrentPosition(
-        ({ coords }) => {
-          setUserLocation({ latitude: coords.latitude, longitude: coords.longitude });
-          setLocationMessage("");
-        },
-        (error) => setLocationMessage(error.code === 1
-          ? "Location permission was denied. Allow location access in your browser settings to see distances."
-          : "Could not get your location. Check your device settings and try again."),
-        { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
-      );
+      try {
+        const permission = await expo_location_1.requestForegroundPermissionsAsync();
+        if (permission.status !== "granted") {
+          setLocationMessage("Location permission was denied. Allow location access in your device settings to see distances.");
+          return;
+        }
+        const position = await expo_location_1.getCurrentPositionAsync({
+          accuracy: expo_location_1.Accuracy.Balanced,
+        });
+        setUserLocation({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+        setLocationMessage("");
+      } catch {
+        setLocationMessage("Could not get your location. Check your device settings and try again.");
+      }
     };
     (0, react_1.useEffect)(() => {
       setAccommodations([]);
