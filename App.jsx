@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, AppState, View, Text, StyleSheet } from "react-native";
+import { ActivityIndicator, AppState, Platform, View, StyleSheet } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import {
@@ -183,7 +183,7 @@ function PlannerApp() {
       if (state === 'active') syncAccount();
     };
     const appStateSubscription = AppState.addEventListener('change', onAppStateChange);
-    if (typeof window !== 'undefined') window.addEventListener('online', syncAccount);
+    if (Platform.OS === 'web') window.addEventListener('online', syncAccount);
     const syncTimer = setInterval(() => {
       if (AppState.currentState === 'active') syncAccount();
     }, 30000);
@@ -193,7 +193,7 @@ function PlannerApp() {
       active = false;
       appStateSubscription.remove();
       clearInterval(syncTimer);
-      if (typeof window !== 'undefined') window.removeEventListener('online', syncAccount);
+      if (Platform.OS === 'web') window.removeEventListener('online', syncAccount);
     };
   }, [currentUser?.email, currentUser?.isAdmin]);
 
@@ -304,12 +304,13 @@ function PlannerApp() {
       });
       const credentials = pendingCredentials.current;
       if (credentials?.email === cleanEmail) {
-        await saveOfflineVerifier(cleanEmail, credentials.password);
+        try {
+          await saveOfflineVerifier(cleanEmail, credentials.password);
+        } catch (error) {
+          console.error('Could not save the offline sign-in verifier:', error);
+        }
       }
       pendingCredentials.current = null;
-      setCurrentUser(user);
-      setDayPlan(user.dayPlan || []);
-      await saveActiveSession(user);
       return { ok: true, user };
     } catch (error) {
       return { ok: false, errors: error.errors || { form: error.message } };
@@ -385,12 +386,13 @@ function PlannerApp() {
       });
       const credentials = pendingCredentials.current;
       if (credentials?.email === cleanEmail) {
-        await saveOfflineVerifier(cleanEmail, credentials.password);
+        try {
+          await saveOfflineVerifier(cleanEmail, credentials.password);
+        } catch (error) {
+          console.error('Could not save the offline sign-in verifier:', error);
+        }
       }
       pendingCredentials.current = null;
-      setCurrentUser(user);
-      setDayPlan(user.dayPlan || []);
-      await saveActiveSession(user);
       return { ok: true, user };
     } catch (error) {
       return { ok: false, errors: error.errors || { form: error.message } };
@@ -763,25 +765,6 @@ function PlannerApp() {
     </SafeAreaProvider>
   );
 }
-
-
-{__DEV__ && (
-  <View style={{ padding: 6, backgroundColor: '#FFE08A' }}>
-    <Text style={{ color: '#000' }}>
-      Screen: {screen} | User: {currentUser?.email || 'None'}
-    </Text>
-  </View>
-)}
-
-useEffect(() => {
-  console.log("APP DIAGNOSTIC:", {
-    hasUser: !!currentUser,
-    email: currentUser?.email,
-    screen,
-    authMode,
-    restoringSession,
-  });
-}, [currentUser, screen, authMode, restoringSession]);
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.sand },

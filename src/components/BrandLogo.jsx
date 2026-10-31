@@ -2,7 +2,7 @@ import React from "react";
 import { Image, StyleSheet, View } from "react-native";
 import { colors } from "../theme/theme";
 
-const logoSource = require("../../assets/brand-logo.png");
+const logoSource = require("../../assets/brand-logo.jpg");
 
 export default function BrandLogo({ dark = false, compact = false, circle = false, rounded = false }) {
   return (

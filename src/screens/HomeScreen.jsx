@@ -82,7 +82,7 @@ function HomeScreen({ onSelect, onViewPlan, planCount, currentUser, onSignOut, o
         <react_native_1.View style={styles.userRow}>
             <react_native_1.Pressable onPress={onViewProfile}>
               <react_native_1.Text style={styles.userGreeting}>
-                Hi, <react_native_1.Text style={styles.userName}>{currentUser?.firstName || currentUser}</react_native_1.Text>
+                Hi, <react_native_1.Text style={styles.userName}>{currentUser?.firstName || currentUser?.email?.split("@")[0] || "traveller"}</react_native_1.Text>
               </react_native_1.Text>
             </react_native_1.Pressable>
             <react_native_1.Pressable onPress={onSignOut} style={styles.signOutBtn}>
