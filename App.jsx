@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, AppState, View, StyleSheet } from "react-native";
+import { ActivityIndicator, AppState, Platform, View, StyleSheet } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import {
@@ -22,6 +22,7 @@ import RegisterScreen from "./src/screens/RegisterScreen";
 import ForgotPasswordScreen from "./src/screens/ForgotPasswordScreen";
 import HomeScreen from "./src/screens/HomeScreen";
 import AttractionScreen from "./src/screens/AttractionScreen";
+import TravelLensScreen from "./src/screens/TravelLensScreen";
 import DayPlanScreen from "./src/screens/DayPlanScreen";
 import { isStrongPassword, normalizeEmail, validateEmail, validateName } from "./src/utils/validation";
 import {
@@ -36,6 +37,8 @@ import {
   deleteUserAccount,
   fetchUserProfile,
   fetchUserPlan,
+  logoutAdmin,
+  logoutUser,
 } from './src/services/placesService';
 import {
   clearActiveSession,
@@ -54,8 +57,17 @@ import PrivacyScreen from './src/screens/PrivacyScreen';
 import AboutScreen from './src/screens/AboutScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import AdminScreen from './src/screens/AdminScreen';
+import StartupErrorBoundary from './src/components/StartupErrorBoundary';
 
 export default function App() {
+  return (
+    <StartupErrorBoundary>
+      <PlannerApp />
+    </StartupErrorBoundary>
+  );
+}
+
+function PlannerApp() {
   const [frauncesLoaded] = useFraunces({
     Fraunces_600SemiBold,
     Fraunces_700Bold,
@@ -77,6 +89,8 @@ export default function App() {
   const [restoringSession, setRestoringSession] = useState(true);
   const [syncNotice, setSyncNotice] = useState('');
   const pendingCredentials = useRef(null);
+  const dayPlanRef = useRef(dayPlan);
+  dayPlanRef.current = dayPlan;
 
   useEffect(() => {
     let active = true;
@@ -134,7 +148,7 @@ export default function App() {
           await clearPendingChanges(currentUser.email, ['profile']);
         }
 
-        let plan = dayPlan;
+        let plan = dayPlanRef.current;
         if (Array.isArray(pending?.dayPlan)) {
           plan = pending.dayPlan;
           await saveUserPlan(currentUser.email, plan);
@@ -170,13 +184,17 @@ export default function App() {
       if (state === 'active') syncAccount();
     };
     const appStateSubscription = AppState.addEventListener('change', onAppStateChange);
-    if (typeof window !== 'undefined') window.addEventListener('online', syncAccount);
+    if (Platform.OS === 'web') window.addEventListener('online', syncAccount);
+    const syncTimer = setInterval(() => {
+      if (AppState.currentState === 'active') syncAccount();
+    }, 30000);
     syncAccount();
 
     return () => {
       active = false;
       appStateSubscription.remove();
-      if (typeof window !== 'undefined') window.removeEventListener('online', syncAccount);
+      clearInterval(syncTimer);
+      if (Platform.OS === 'web') window.removeEventListener('online', syncAccount);
     };
   }, [currentUser?.email, currentUser?.isAdmin]);
 
@@ -287,13 +305,14 @@ export default function App() {
       });
       const credentials = pendingCredentials.current;
       if (credentials?.email === cleanEmail) {
-        await saveOfflineVerifier(cleanEmail, credentials.password);
+        try {
+          await saveOfflineVerifier(cleanEmail, credentials.password);
+        } catch (error) {
+          console.error('Could not save the offline sign-in verifier:', error);
+        }
       }
       pendingCredentials.current = null;
-      setCurrentUser(user);
-      setDayPlan(user.dayPlan || []);
-      await saveActiveSession(user);
-      return { ok: true, userName: user.firstName };
+      return { ok: true, user };
     } catch (error) {
       return { ok: false, errors: error.errors || { form: error.message } };
     }
@@ -316,7 +335,7 @@ export default function App() {
         return {
           ok: true,
           adminRequired: true,
-          userName: result.user,
+          userName: { ...result.user, adminToken: result.adminToken, adminRole: result.role },
         };
       }
       pendingCredentials.current = { email: cleanEmail, password };
@@ -368,13 +387,14 @@ export default function App() {
       });
       const credentials = pendingCredentials.current;
       if (credentials?.email === cleanEmail) {
-        await saveOfflineVerifier(cleanEmail, credentials.password);
+        try {
+          await saveOfflineVerifier(cleanEmail, credentials.password);
+        } catch (error) {
+          console.error('Could not save the offline sign-in verifier:', error);
+        }
       }
       pendingCredentials.current = null;
-      setCurrentUser(user);
-      setDayPlan(user.dayPlan || []);
-      await saveActiveSession(user);
-      return { ok: true, userName: user.firstName };
+      return { ok: true, user };
     } catch (error) {
       return { ok: false, errors: error.errors || { form: error.message } };
     }
@@ -459,20 +479,104 @@ export default function App() {
     await persistPlan(nextPlan);
   };
 
-  const handleAuthSuccess = async (nameOrUser) => {
-    const user = typeof nameOrUser === 'object'
-      ? nameOrUser
-      : { firstName: nameOrUser, dayPlan: [] };
-    setCurrentUser((prev) => prev || user);
-    setDayPlan(user.dayPlan || []);
-    try {
-      await saveActiveSession(user);
-      setSyncNotice('Your account is saved on this device for offline access.');
-    } catch (error) {
-      console.error('Could not save the local session:', error);
-    }
-    if (user.isAdmin) setScreen('admin');
+  const updatePlanGroupSize = async (groupSize) => {
+    const nextPlan = dayPlan.map((entry) => {
+      const roomQuantity = Number(entry.roomQuantity || entry.booking?.roomQuantity || 1);
+      const roomSharing = Number(entry.roomSharing || entry.booking?.roomSharing || 2);
+      const nights = Number(entry.stayNights || entry.booking?.nights || 1);
+      const accommodationTotal = entry.accommodation
+        ? Number(entry.accommodation.price || 0) * roomQuantity * nights
+        : 0;
+      const activitiesTotal = (entry.activities || []).reduce(
+        (sum, activity) => sum + Number(activity.price || 0) * groupSize,
+        0
+      );
+      const guestsNeedingRoom = entry.accommodation
+        ? Math.max(0, groupSize - roomQuantity * roomSharing)
+        : 0;
+      const booking = entry.booking
+        ? {
+            ...entry.booking,
+            adults: groupSize,
+            roomQuantity,
+            roomSharing,
+            guestsNeedingRoom,
+            accommodationTotal,
+            activitiesTotal,
+            amount: accommodationTotal + activitiesTotal,
+          }
+        : undefined;
+      return {
+        ...entry,
+        groupSize,
+        roomQuantity,
+        roomSharing,
+        guestsNeedingRoom,
+        accommodationTotal,
+        activitiesTotal,
+        booking,
+      };
+    });
+    await updatePlan(nextPlan);
   };
+
+  const handleAuthSuccess = async (nameOrUser) => {
+  const suppliedUser =
+    nameOrUser && typeof nameOrUser === 'object'
+      ? nameOrUser
+      : {};
+
+  const user = {
+    ...(currentUser || {}),
+    ...suppliedUser,
+    ...(typeof nameOrUser === 'string'
+      ? { firstName: nameOrUser }
+      : {}),
+  };
+
+  // Never save an incomplete session.
+  if (!user.email) {
+    console.error(
+      'Login completed without a valid user email.'
+    );
+    setSyncNotice(
+      'Your account could not be restored. Please sign in again.'
+    );
+    return;
+  }
+
+  const plan = Array.isArray(user.dayPlan)
+    ? user.dayPlan
+    : Array.isArray(dayPlan)
+      ? dayPlan
+      : [];
+
+  const completeUser = {
+    ...user,
+    dayPlan: plan,
+  };
+
+  setCurrentUser(completeUser);
+  setDayPlan(plan);
+
+  try {
+    await saveActiveSession(completeUser);
+    setSyncNotice(
+      'Your account is saved on this device for offline access.'
+    );
+  } catch (error) {
+    console.error(
+      'Could not save the local session:',
+      error
+    );
+  }
+
+  if (completeUser.isAdmin) {
+    setScreen('admin');
+  } else {
+    setScreen('home');
+  }
+};
 
   return (
     <SafeAreaProvider>
@@ -542,6 +646,7 @@ export default function App() {
               <HomeScreen
                 onSelect={selectAttraction}
                 onViewPlan={() => setScreen('dayplan')}
+                onViewTravelLens={() => setScreen('travelLens')}
                 planCount={dayPlan.length}
                 currentUser={currentUser}
                 syncNotice={syncNotice}
@@ -551,6 +656,7 @@ export default function App() {
                 onSignOut={async () => {
                   if (currentUser?.email && !currentUser.isAdmin) {
                     await persistPlan(dayPlan);
+                    try { await logoutUser(); } catch {}
                   }
                   await clearActiveSession();
                   setCurrentUser(null);
@@ -562,7 +668,9 @@ export default function App() {
             {screen === 'attraction' && selectedAttraction && (
               <AttractionScreen
                 attraction={selectedAttraction}
+                currentUser={currentUser}
                 onBack={() => setScreen('home')}
+                onGoToPlan={() => setScreen('dayplan')}
                 onAddToPlan={addToPlan}
                 existingEntry={dayPlan.find(
                   (e) => e.attractionId === selectedAttraction.id
@@ -578,6 +686,17 @@ export default function App() {
                 }
                 onClearAll={() => updatePlan([])}
                 onSelectAttraction={selectAttraction}
+                onGroupSizeChange={updatePlanGroupSize}
+              />
+            )}
+            {screen === 'travelLens' && (
+              <TravelLensScreen
+                user={currentUser}
+                onBack={() => setScreen('home')}
+                onSelectAttraction={(attraction) => {
+                  setSelectedAttraction(attraction);
+                  setScreen('attraction');
+                }}
               />
             )}
             {screen === 'privacy' && (
@@ -585,6 +704,7 @@ export default function App() {
                 onBack={() => setScreen('home')}
                 onPrivacy={() => setScreen('privacy')}
                 onAbout={() => setScreen('about')}
+                onManageAccount={() => setScreen('profile')}
               />
             )}
             {screen === 'about' && (
@@ -640,7 +760,15 @@ export default function App() {
             {screen === 'admin' && (
               <AdminScreen
                 adminEmail={currentUser.email}
-                onBack={() => setScreen('profile')}
+                adminToken={currentUser.adminToken}
+                adminRole={currentUser.adminRole}
+                onBack={async () => {
+                  try { await logoutAdmin(currentUser.adminToken); } catch {}
+                  await clearActiveSession();
+                  setCurrentUser(null);
+                  setAuthMode('landing');
+                  setScreen('home');
+                }}
               />
             )}
           </>
@@ -656,9 +784,10 @@ const styles = StyleSheet.create({
 });
 
 function getInitialResetParams() {
-  if (typeof window === "undefined") return null;
+  const search = typeof window !== "undefined" ? window.location?.search : undefined;
+  if (typeof search !== "string" || !search) return null;
 
-  const params = new URLSearchParams(window.location.search);
+  const params = new URLSearchParams(search);
   const token = params.get("resetToken");
   const email = params.get("email");
 

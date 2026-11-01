@@ -1,4 +1,6 @@
 import Constants from "expo-constants";
+import { Platform } from "react-native";
+import { restoreActiveSession } from "./offlineStore";
 
 // --- API base URL resolution -------------------------------------------------
 // The #1 cause of "failing to fetch" on a phone/emulator is that `localhost`
@@ -14,6 +16,10 @@ import Constants from "expo-constants";
 function resolveApiBase() {
   if (process.env.EXPO_PUBLIC_API_URL) {
     return process.env.EXPO_PUBLIC_API_URL;
+  }
+
+  if (Platform.OS === "web" && !__DEV__ && typeof window !== "undefined") {
+    return `${window.location.origin}/api`;
   }
 
   const hostUri =
@@ -138,92 +144,36 @@ export async function fetchAccommodationOffers({
     const response = await fetch(url.toString(), { signal: timeoutController.signal });
     const data = await readApiJson(response, "Hotel offers");
     if (!response.ok) throw new Error(data?.error || `Hotel backend error (HTTP ${response.status}).`);
-    return Array.isArray(data.hotels) ? data.hotels : [];
+    return {
+      hotels: Array.isArray(data.hotels) ? data.hotels : [],
+      hotelWarning:
+        typeof data.hotelWarning === "string" ? data.hotelWarning : "",
+      photoWarning:
+        typeof data.photoWarning === "string" ? data.photoWarning : "",
+    };
   } finally {
     clearTimeout(timeoutId);
   }
 }
 
-export async function fetchNearbyPlaces({
-  latitude,
-  longitude,
-  category,
-  signal,
-} = {}) {
-  const url = new URL(`${API_BASE}/nearby-places`);
-  if (Number.isFinite(latitude)) url.searchParams.set("lat", String(latitude));
-  if (Number.isFinite(longitude)) url.searchParams.set("lng", String(longitude));
-  url.searchParams.set("category", String(category || "all"));
-
-  const timeoutController = new AbortController();
-  const timeoutId = setTimeout(() => timeoutController.abort(), 45000);
-  const abortRequest = () => timeoutController.abort();
-  if (signal) signal.addEventListener("abort", abortRequest, { once: true });
-
-  try {
-    const response = await fetch(url.toString(), { signal: timeoutController.signal });
-    const data = await readApiJson(response, "Nearby places");
-    if (!response.ok) {
-      throw new Error(data?.error || `Nearby places request failed (HTTP ${response.status}).`);
+export async function sendBookingConfirmationEmail(booking) {
+  const session = await restoreActiveSession();
+  const response = await fetch(`${API_BASE}/booking-confirmation-email`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(session?.accessToken ? { Authorization: `Bearer ${session.accessToken}` } : {}),
+    },
+    body: JSON.stringify({ booking }),
+  });
+  const data = await readApiJson(response, "Booking confirmation email");
+  if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error(data?.errors?.form || "Your app sign-in session expired. Sign out and sign in again, then retry the booking email.");
     }
-    if (!Array.isArray(data.places)) {
-      throw new Error("Nearby places service returned an invalid response.");
-    }
-    return data.places;
-  } catch (error) {
-    if (error?.name === "AbortError") {
-      if (signal?.aborted) throw error;
-      throw new Error("Nearby places request timed out. Please try again.");
-    }
-    if (error instanceof TypeError) {
-      throw new Error(`Could not reach the nearby places service at ${API_BASE}. (${error.message})`);
-    }
-    throw error;
-  } finally {
-    clearTimeout(timeoutId);
-    if (signal) signal.removeEventListener("abort", abortRequest);
+    throw new Error(data?.error || data?.errors?.form || `Email service failed (HTTP ${response.status}).`);
   }
-}
-
-export async function fetchDrivingDistances({
-  places,
-  attraction,
-  userLocation,
-  signal,
-} = {}) {
-  const timeoutController = new AbortController();
-  const timeoutId = setTimeout(() => timeoutController.abort(), REQUEST_TIMEOUT_MS);
-  const abortRequest = () => timeoutController.abort();
-  if (signal) signal.addEventListener("abort", abortRequest, { once: true });
-
-  try {
-    const response = await fetch(`${API_BASE}/route-distances`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ places, attraction, userLocation }),
-      signal: timeoutController.signal,
-    });
-    const data = await readApiJson(response, "Routes API driving distance");
-    if (!response.ok) {
-      throw new Error(data?.error || `Driving distance request failed (HTTP ${response.status}).`);
-    }
-    if (!data.routesToAttraction || !data.routesFromUser) {
-      throw new Error("Routes service returned invalid driving distances.");
-    }
-    return data;
-  } catch (error) {
-    if (error?.name === "AbortError") {
-      if (signal?.aborted) throw error;
-      throw new Error("Driving distance request timed out. Please try again.");
-    }
-    if (error instanceof TypeError) {
-      throw new Error(`Could not reach the Routes service at ${API_BASE}. (${error.message})`);
-    }
-    throw error;
-  } finally {
-    clearTimeout(timeoutId);
-    if (signal) signal.removeEventListener("abort", abortRequest);
-  }
+  return data;
 }
 
 export async function fetchWeatherForecast({
@@ -338,20 +288,35 @@ export async function loginUser(payload) {
   return data;
 }
 
+export async function getAdminRoleHint(email) {
+  try {
+    const response = await fetch(
+      `${API_BASE}/auth/admin-role?email=${encodeURIComponent(String(email || '').trim().toLowerCase())}`
+    );
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.role || null;
+  } catch {
+    return null;
+  }
+}
+
 export const verifyLoginOtp = (payload) =>
   postAuth('/auth/login/verify-otp', payload);
 export const verifyRegistrationOtp = (payload) =>
   postAuth('/auth/register/verify-otp', payload);
 
-async function accountRequest(path, { method = 'GET', body, adminEmail } = {}) {
+async function accountRequest(path, { method = 'GET', body, adminToken } = {}) {
   let response;
   let data;
   try {
+    const session = adminToken ? null : await restoreActiveSession();
+    const accessToken = adminToken || session?.accessToken;
     response = await fetch(`${API_BASE}${path}`, {
       method,
       headers: {
         'Content-Type': 'application/json',
-        ...(adminEmail ? { 'x-admin-email': adminEmail } : {}),
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
@@ -372,8 +337,38 @@ async function accountRequest(path, { method = 'GET', body, adminEmail } = {}) {
   return data;
 }
 
+// Authenticated JSON request helper for feature-specific service modules.
+export async function apiRequest(path, { method = 'GET', body } = {}) {
+  const normalizedPath = String(path || '').replace(/^\/api(?=\/)/, '');
+  let response;
+  let data;
+  try {
+    const session = await restoreActiveSession();
+    response = await fetch(`${API_BASE}${normalizedPath}`, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(session?.accessToken ? { Authorization: `Bearer ${session.accessToken}` } : {}),
+      },
+      ...(body === undefined ? {} : { body }),
+    });
+    data = await response.json();
+  } catch (error) {
+    throw new Error(`Could not reach the account server at ${API_BASE}. Start node server.js and try again.`);
+  }
+  if (!response.ok) {
+    const error = new Error(data?.errors?.form || data?.error || 'Account request failed.');
+    error.status = response.status;
+    error.errors = data?.errors || { form: error.message };
+    throw error;
+  }
+  return data;
+}
+
 export const fetchUserProfile = (email) =>
   accountRequest(`/users/${encodeURIComponent(email)}/profile`);
+export const fetchUserActivity = (email) =>
+  accountRequest(`/users/${encodeURIComponent(email)}/activity`);
 export const updateUserProfile = (email, profile) =>
   accountRequest(`/users/${encodeURIComponent(email)}/profile`, {
     method: 'PATCH',
@@ -398,22 +393,25 @@ export const removeUserPlanEntry = (email, attractionId) =>
     `/users/${encodeURIComponent(email)}/plan/${encodeURIComponent(attractionId)}`,
     { method: 'DELETE' }
   );
-export const fetchAdminUsers = (adminEmail) =>
-  accountRequest('/admin/users', { adminEmail });
-export const fetchAdminAuditEvents = (adminEmail) =>
-  accountRequest('/admin/audit-events', { adminEmail });
-export const fetchAdminHealth = (adminEmail) =>
-  accountRequest('/admin/health', { adminEmail });
-export const updateAdminUser = (adminEmail, email, profile) =>
+export const fetchAdminUsers = (adminToken) =>
+  accountRequest('/admin/users', { adminToken });
+export const fetchAdminAuditEvents = (adminToken) =>
+  accountRequest('/admin/audit-events', { adminToken });
+export const fetchAdminHealth = (adminToken) =>
+  accountRequest('/admin/health', { adminToken });
+export const logoutAdmin = (adminToken) =>
+  accountRequest('/admin/logout', { method: 'POST', adminToken });
+export const logoutUser = () => accountRequest('/auth/logout', { method: 'POST' });
+export const updateAdminUser = (adminToken, email, profile) =>
   accountRequest(`/admin/users/${encodeURIComponent(email)}`, {
     method: 'PATCH',
     body: profile,
-    adminEmail,
+    adminToken,
   });
-export const deleteAdminUser = (adminEmail, email) =>
+export const deleteAdminUser = (adminToken, email) =>
   accountRequest(`/admin/users/${encodeURIComponent(email)}`, {
     method: 'DELETE',
-    adminEmail,
+    adminToken,
   });
 
 export async function requestPasswordResetLink(payload) {

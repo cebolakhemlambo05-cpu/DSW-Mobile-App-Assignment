@@ -42,12 +42,22 @@ const theme_1 = require("../theme/theme");
 const attractions_1 = require("../data/attractions");
 const format_1 = require("../utils/format");
 const Icons_1 = require("../components/Icons");
-function DayPlanScreen({ plan, onBack, onRemove, onClearAll, onSelectAttraction, }) {
-    const [groupSize, setGroupSize] = (0, react_1.useState)(1);
-    const totalAccom = plan.reduce((s, e) => { var _a, _b; return s + ((_b = (_a = e.accommodation) === null || _a === void 0 ? void 0 : _a.price) !== null && _b !== void 0 ? _b : 0); }, 0);
+function DayPlanScreen({ plan, onBack, onRemove, onClearAll, onSelectAttraction, onGroupSizeChange, }) {
+    const initialGuests = plan.find((entry) => Number.isInteger(entry.groupSize || entry.booking?.adults))?.groupSize || plan.find((entry) => Number.isInteger(entry.booking?.adults))?.booking.adults || 1;
+    const [groupSize, setGroupSize] = (0, react_1.useState)(initialGuests);
+    const totalAccom = plan.reduce((sum, entry) => {
+        const savedTotal = entry.booking?.accommodationTotal ?? entry.accommodationTotal;
+        if (savedTotal != null && Number.isFinite(Number(savedTotal))) return sum + Number(savedTotal);
+        const nightlyRate = Number(entry.accommodation?.price || 0);
+        const rooms = Number(entry.roomQuantity || entry.booking?.roomQuantity || 1);
+        const nights = Number(entry.stayNights || entry.booking?.nights || 1);
+        return sum + nightlyRate * rooms * nights;
+    }, 0);
+    const totalReservationDue = plan.reduce((sum, entry) => sum + (entry.booking?.paymentStatus === "awaiting_payment" ? Number(entry.booking.amount || 0) : 0), 0);
     const totalActivities = plan.reduce((s, e) => s + e.activities.reduce((ss, a) => ss + a.price, 0), 0);
     const grandTotal = totalAccom + totalActivities * groupSize;
     const perPerson = groupSize > 0 ? grandTotal / groupSize : 0;
+    const guestsNeedingRooms = plan.reduce((maximum, entry) => entry.accommodation ? Math.max(maximum, groupSize - Number(entry.roomSharing || entry.booking?.roomSharing || 2) * Number(entry.roomQuantity || entry.booking?.roomQuantity || 1), 0) : maximum, 0);
     return (<react_native_1.View style={styles.screen}>
       <react_native_safe_area_context_1.SafeAreaView edges={["top"]} style={styles.header}>
         <react_native_1.Pressable onPress={onBack}>
@@ -77,16 +87,16 @@ function DayPlanScreen({ plan, onBack, onRemove, onClearAll, onSelectAttraction,
                 <react_native_1.View style={styles.groupInfo}>
                   <Icons_1.IconUsers color={theme_1.colors.sky}/>
                   <react_native_1.View>
-                    <react_native_1.Text style={styles.groupTitle}>Group Split Calculator</react_native_1.Text>
-                    <react_native_1.Text style={styles.groupSubtitle}>Activities cost split per person</react_native_1.Text>
+                    <react_native_1.Text style={styles.groupTitle}>Travel party</react_native_1.Text>
+                    <react_native_1.Text style={styles.groupSubtitle}>Updates room allocation and activity totals</react_native_1.Text>
                   </react_native_1.View>
                 </react_native_1.View>
                 <react_native_1.View style={styles.stepperRow}>
-                  <react_native_1.Pressable onPress={() => setGroupSize(Math.max(1, groupSize - 1))} style={styles.stepperBtn}>
+                  <react_native_1.Pressable onPress={() => { const next = Math.max(1, groupSize - 1); setGroupSize(next); onGroupSizeChange?.(next); }} style={styles.stepperBtn}>
                     <react_native_1.Text style={styles.stepperBtnText}>−</react_native_1.Text>
                   </react_native_1.Pressable>
                   <react_native_1.Text style={styles.stepperValue}>{groupSize}</react_native_1.Text>
-                  <react_native_1.Pressable onPress={() => setGroupSize(Math.min(20, groupSize + 1))} style={styles.stepperBtn}>
+                  <react_native_1.Pressable onPress={() => { const next = Math.min(27, groupSize + 1); setGroupSize(next); onGroupSizeChange?.(next); }} style={styles.stepperBtn}>
                     <react_native_1.Text style={styles.stepperBtnText}>+</react_native_1.Text>
                   </react_native_1.Pressable>
                 </react_native_1.View>
@@ -120,14 +130,31 @@ function DayPlanScreen({ plan, onBack, onRemove, onClearAll, onSelectAttraction,
                           <react_native_1.Text style={styles.lineLabel}>🛏 {entry.accommodation.name}</react_native_1.Text>
                           <react_native_1.Text style={styles.lineValue}>
                             {(0, format_1.fmt)(entry.accommodation.price, entry.accommodation.currency)}
-                            <react_native_1.Text style={styles.lineUnit}>/night</react_native_1.Text>
+                            <react_native_1.Text style={styles.lineUnit}>/room/night</react_native_1.Text>
                           </react_native_1.Text>
+                        </react_native_1.View>)}
+                      {entry.accommodation && (<react_native_1.View style={{ marginTop: 4 }}>
+                          <react_native_1.Text style={styles.lineUnit}>{entry.groupSize || groupSize} guests · {entry.roomQuantity || 1} room{Number(entry.roomQuantity || 1) === 1 ? "" : "s"} · {entry.roomSharing || 2} sharing · {entry.stayNights || 1} night{Number(entry.stayNights || 1) === 1 ? "" : "s"} · {entry.checkInDate} to {entry.checkOutDate}</react_native_1.Text>
+                          <react_native_1.Text style={styles.lineValue}>Stay total: {(0, format_1.fmt)(entry.accommodationTotal ?? Number(entry.accommodation.price || 0) * Number(entry.roomQuantity || 1) * Number(entry.stayNights || 1), entry.accommodation.currency)}</react_native_1.Text>
+                          {Math.max(0, (entry.groupSize || groupSize) - Number(entry.roomQuantity || 1) * Number(entry.roomSharing || 2)) > 0 && <react_native_1.Text style={styles.lineUnit}>{Math.max(0, (entry.groupSize || groupSize) - Number(entry.roomQuantity || 1) * Number(entry.roomSharing || 2))} guest{Math.max(0, (entry.groupSize || groupSize) - Number(entry.roomQuantity || 1) * Number(entry.roomSharing || 2)) === 1 ? "" : "s"} still need a room.</react_native_1.Text>}
+                        </react_native_1.View>)}
+                      {entry.booking && (<react_native_1.View style={{ marginTop: 8, padding: 12, borderRadius: 12, backgroundColor: "#F4EBDD" }}>
+                          <react_native_1.Text style={styles.lineLabel}>Reservation request · Payment due</react_native_1.Text>
+                          <react_native_1.Text style={styles.lineUnit}>{entry.groupSize || entry.booking.adults} guest{(entry.groupSize || entry.booking.adults) === 1 ? "" : "s"} · {entry.booking.roomQuantity || 1} room{Number(entry.booking.roomQuantity || 1) === 1 ? "" : "s"} · {entry.booking.roomSharing || 2} sharing</react_native_1.Text>
+                          <react_native_1.Text style={styles.lineUnit}>{entry.booking.checkIn} to {entry.booking.checkOut} · {entry.booking.nights || entry.stayNights || 1} night{Number(entry.booking.nights || entry.stayNights || 1) === 1 ? "" : "s"}</react_native_1.Text>
+                          <react_native_1.Text style={styles.lineValue}>Trip total due: {(0, format_1.fmt)(entry.booking.amount, entry.booking.currency)}</react_native_1.Text>
+                          {Math.max(0, (entry.groupSize || entry.booking.adults) - (entry.booking.roomQuantity || 1) * (entry.booking.roomSharing || 2)) > 0 && <react_native_1.Text style={styles.lineUnit}>{Math.max(0, (entry.groupSize || entry.booking.adults) - (entry.booking.roomQuantity || 1) * (entry.booking.roomSharing || 2))} guest{Math.max(0, (entry.groupSize || entry.booking.adults) - (entry.booking.roomQuantity || 1) * (entry.booking.roomSharing || 2)) === 1 ? "" : "s"} still need a room.</react_native_1.Text>}
+                          <react_native_1.Text selectable style={[styles.lineValue, { marginTop: 4 }]}>Booking ref: {entry.booking.bookingReference}</react_native_1.Text>
+                          <react_native_1.Text selectable style={[styles.lineValue, { marginTop: 2 }]}>Payment ref: {entry.booking.paymentReference}</react_native_1.Text>
+                          <react_native_1.Text style={styles.lineUnit}>Payment method: {entry.booking.paymentMethod}</react_native_1.Text>
+                          <react_native_1.Text style={styles.lineUnit}>{entry.booking.emailStatus === "sent" ? "Reservation request receipt sent by email." : `Email receipt could not be sent: ${entry.booking.emailError || "check email settings"}`}</react_native_1.Text>
+                          <react_native_1.Text style={styles.lineUnit}>Hotelbeds reservation confirmation is still pending.</react_native_1.Text>
                         </react_native_1.View>)}
                       {entry.activities.map((act) => (<react_native_1.View key={act.id} style={styles.lineRow}>
                           <react_native_1.Text style={styles.lineLabel}>🎯 {act.name}</react_native_1.Text>
                           <react_native_1.Text style={styles.lineValue}>
-                            {(0, format_1.fmt)(act.price * groupSize)}
-                            {groupSize > 1 && <react_native_1.Text style={styles.lineUnit}> ({groupSize}×)</react_native_1.Text>}
+                            {(0, format_1.fmt)(act.price * (entry.groupSize || groupSize))}
+                            {(entry.groupSize || groupSize) > 1 && <react_native_1.Text style={styles.lineUnit}> ({entry.groupSize || groupSize}×)</react_native_1.Text>}
                           </react_native_1.Text>
                         </react_native_1.View>))}
                     </react_native_1.View>
@@ -146,18 +173,23 @@ function DayPlanScreen({ plan, onBack, onRemove, onClearAll, onSelectAttraction,
                   <react_native_1.Text style={styles.breakdownLabel}>Activities ({groupSize} person{groupSize > 1 ? "s" : ""})</react_native_1.Text>
                   <react_native_1.Text style={styles.breakdownValue}>{(0, format_1.fmt)(totalActivities * groupSize)}</react_native_1.Text>
                 </react_native_1.View>
+                <react_native_1.View style={[styles.breakdownRow, styles.perPersonRow]}>
+                  <react_native_1.Text style={styles.perPersonLabel}>Saved trip amounts due</react_native_1.Text>
+                  <react_native_1.Text style={styles.perPersonLabel}>{(0, format_1.fmt)(totalReservationDue)}</react_native_1.Text>
+                </react_native_1.View>
                 {groupSize > 1 && (<react_native_1.View style={[styles.breakdownRow, styles.perPersonRow]}>
-                    <react_native_1.Text style={styles.perPersonLabel}>Per person (activities split)</react_native_1.Text>
+                    <react_native_1.Text style={styles.perPersonLabel}>Estimated per person</react_native_1.Text>
                     <react_native_1.Text style={styles.perPersonLabel}>{(0, format_1.fmt)(perPerson)}</react_native_1.Text>
                   </react_native_1.View>)}
               </react_native_1.View>
               <react_native_1.View style={styles.grandTotalRow}>
                 <react_native_1.View>
-                  <react_native_1.Text style={styles.grandTotalLabel}>Grand Total</react_native_1.Text>
+                  <react_native_1.Text style={styles.grandTotalLabel}>Trip Total Estimate</react_native_1.Text>
                   {groupSize > 1 && (<react_native_1.Text style={styles.perPersonNote}>R{Math.round(perPerson).toLocaleString("en-ZA")} per person</react_native_1.Text>)}
                 </react_native_1.View>
                 <react_native_1.Text style={styles.grandTotalValue}>{(0, format_1.fmt)(grandTotal)}</react_native_1.Text>
               </react_native_1.View>
+              {guestsNeedingRooms > 0 && <react_native_1.Text style={styles.groupSubtitle}>{guestsNeedingRooms} guests still need room allocation. The estimate includes the selected rooms and planned activities.</react_native_1.Text>}
             </react_native_1.View>
           </>)}
       </react_native_1.ScrollView>

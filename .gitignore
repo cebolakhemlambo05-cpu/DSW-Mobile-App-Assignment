@@ -30,6 +30,8 @@ dist-local-data/
 web-build/
 
 # Native
+/android/
+/ios/
 *.jks
 *.p8
 *.p12
@@ -39,3 +41,4 @@ web-build/
 # OS/editor cruft
 .DS_Store
 Thumbs.db
+.env

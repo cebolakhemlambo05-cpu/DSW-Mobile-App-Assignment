@@ -10,6 +10,11 @@ const theme_1 = require("../theme/theme");
 const Icons_1 = require("./Icons");
 const format_1 = require("../utils/format");
 function ActivityCard({ activity: act, selected, onToggle, }) {
+    const openPriceSource = async () => {
+        if (!act.sourceUrl) return;
+        try { await react_native_1.Linking.openURL(act.sourceUrl); }
+        catch { react_native_1.Alert.alert("Unable to open source", "Please try again or check the operator’s official website."); }
+    };
     return (<react_native_1.Pressable onPress={onToggle} style={[
             styles.card,
             {
@@ -34,6 +39,12 @@ function ActivityCard({ activity: act, selected, onToggle, }) {
           {(0, format_1.fmt)(act.pricePerPerson)}
           {act.pricePerPerson > 0 && <react_native_1.Text style={styles.pp}>/pp</react_native_1.Text>}
         </react_native_1.Text>
+        <react_native_1.Text style={[styles.priceNote, { color: selected ? theme_1.colors.ivory : theme_1.colors.charcoal }]}>
+          {act.priceNote || `Planning estimate · verify with ${act.source || "the operator"}`}
+        </react_native_1.Text>
+        {!!act.sourceUrl && <react_native_1.Pressable accessibilityRole="link" onPress={openPriceSource}>
+          <react_native_1.Text style={styles.sourceLink}>Official rate · checked {act.priceCheckedAt}</react_native_1.Text>
+        </react_native_1.Pressable>}
       </react_native_1.View>
     </react_native_1.Pressable>);
 }
@@ -58,4 +69,6 @@ const styles = react_native_1.StyleSheet.create({
     booking: { fontSize: 10, fontFamily: theme_1.fonts.bodySemiBold, marginTop: 4 },
     price: { fontSize: 16, fontFamily: theme_1.fonts.display },
     pp: { fontSize: 10, fontFamily: theme_1.fonts.body, opacity: 0.6 },
+    priceNote: { fontSize: 9, lineHeight: 12, maxWidth: 150, textAlign: "right", opacity: 0.62, marginTop: 3 },
+    sourceLink: { fontSize: 9, lineHeight: 12, color: theme_1.colors.sky, textAlign: "right", textDecorationLine: "underline", marginTop: 3 },
 });

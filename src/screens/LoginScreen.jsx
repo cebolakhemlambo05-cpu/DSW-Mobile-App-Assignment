@@ -1,7 +1,6 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
-  SafeAreaView,
   Text,
   Pressable,
   StyleSheet,
@@ -18,6 +17,7 @@ import Field from "../components/Field";
 import { IconBack } from "../components/Icons";
 import { cleanEmail } from "../utils/validation";
 import BrandLogo from "../components/BrandLogo";
+import { getAdminRoleHint } from "../services/placesService";
 
 export default function LoginScreen({
   onSuccess,
@@ -35,8 +35,26 @@ export default function LoginScreen({
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [showPw, setShowPw] = useState(false);
+  const [adminRoleHint, setAdminRoleHint] = useState(null);
   const passwordRef = useRef(null);
-  const isAdminEmail = email.trim().toLowerCase() === 'admin@allinoneplaner.com';
+
+  useEffect(() => {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!/\S+@\S+\.\S+/.test(normalizedEmail)) {
+      setAdminRoleHint(null);
+      return undefined;
+    }
+    setAdminRoleHint(null);
+    let active = true;
+    const timer = setTimeout(async () => {
+      const role = await getAdminRoleHint(normalizedEmail);
+      if (active) setAdminRoleHint(role);
+    }, 250);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [email]);
 
   const validate = () => {
     const nextErrors = {};
@@ -118,7 +136,7 @@ export default function LoginScreen({
         return;
       }
 
-      onSuccess(result.userName);
+      onSuccess(result.user);
     } catch (error) {
       setLoading(false);
       setErrors(
@@ -241,9 +259,11 @@ export default function LoginScreen({
                   <ActivityIndicator color={colors.ivory} />
                 ) : (
                   <Text style={styles.submitText}>
-                    {isAdminEmail
-                      ? 'Sign in as admin'
-                      : 'Send security code'}
+                    {adminRoleHint === 'superuser'
+                      ? 'Log in as superuser admin'
+                      : adminRoleHint === 'secondary-admin'
+                        ? 'Log in as secondary admin'
+                        : 'Sign in'}
                   </Text>
                 )}
               </Pressable>

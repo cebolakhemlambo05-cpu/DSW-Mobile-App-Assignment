@@ -9,7 +9,17 @@ npm install
 npx expo start
 ```
 
-Then press `i` for iOS simulator, `a` for Android emulator, or scan the QR code with the **Expo Go** app on your phone.
+Press `a` to open an Android emulator, or scan the QR code from an Expo Go/development build on a physical device. iOS Simulator requires macOS with Xcode.
+
+## Mobile release builds
+
+This project is configured for Expo Application Services (EAS) and is linked to `@cebolakhe/all-in-one-planner`. `eas.json` has an internal Android APK profile (`preview`) and a store build profile (`production`). The API and mobile app deploy separately. Before building, set `EXPO_PUBLIC_API_URL` in the EAS `preview` and `production` environments to the deployed HTTPS backend URL ending in `/api` (for example, `https://your-service.onrender.com/api`). This URL is public app configuration, not a secret. Do not put backend credentials or `OPENAI_API_KEY` in EAS or any `EXPO_PUBLIC_` variable.
+
+Deploy the backend first using the `render.yaml` Blueprint and set its server-side secrets in Render. Add the resulting backend URL to the EAS `preview` and `production` environments under the variable name `EXPO_PUBLIC_API_URL`, then build the app. To build an Android install APK, sign in to the linked Expo account and run `npx eas-cli build --platform android --profile preview`. For iOS internal ad hoc installs, register test devices; TestFlight/App Store distribution requires Apple Developer and App Store Connect access. Production store builds use `npx eas-cli build --platform android --profile production` and `npx eas-cli build --platform ios --profile production`.
+
+`render.yaml` defines the Render backend. Set `FIREBASE_SERVICE_ACCOUNT_JSON`, admin credentials, Hotelbeds credentials, EmailJS variables, and `OPENAI_API_KEY` as appropriate in the Render dashboard; these values must never be committed. `OPENAI_API_KEY` is only used by the backend for Travel Lens landmark recognition and is not required for building the mobile app. The current free Render service can sleep, and its in-memory sign-in sessions are cleared on restart, so users may need to sign in again.
+
+The app uses Expo SDK 58, which targets Android API 36 and uses the current EAS Android/iOS toolchains. The `preview` profile creates an Android APK for device testing; the `production` profile creates store builds for Android and iOS. Run `npx expo-doctor` and export both platforms before starting store builds. The backend health check is available at `/api/health`. Hotelbeds is currently configured to use its test environment, so inventory and quota are for testing; reservation requests are saved in the app but do not confirm a hotel booking or collect payment. Before store submission, add a public privacy-policy URL and complete the Google Play Data safety and Apple App Privacy disclosures using the actual production data flows.
 
 ## API configuration
 
@@ -18,17 +28,30 @@ The backend keeps optional API keys off the device. Create `backend/.env` with:
 ```env
 PORT=3001
 HOTEL_API_PROVIDER=none
+GOOGLE_PLACES_API_KEY=your_google_places_api_key
 ADMIN_EMAIL=admin@yourdomain.com
 ADMIN_PASSWORD=replace_with_a_strong_unique_password
 ```
 
 Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` to your admin login credentials in `backend/.env`; do not put them in the app or share/commit that file. Restart the backend after changing credentials.
 
-Start the API with `node server.js` from the project root, then start Expo. Nearby accommodations, restaurants, fuel stops, and searched attractions use OpenStreetMap; no API key or account is required. The curated attraction catalog remains available when a remote attraction search is unavailable. Live hotel offers can optionally come from Amadeus when configured.
+### Admin website and secondary admin
+
+The same login screen serves the mobile app and browser version. From the project folder, run `npm run web` to open the responsive browser app; signing in with the existing `ADMIN_EMAIL` and `ADMIN_PASSWORD` opens the admin console. Registered users continue into their planner, and unknown email/password combinations are rejected. The browser console and mobile app use the same API and Firestore records. The admin console refreshes every 15 seconds, and an active user app syncs account and plan data every 30 seconds.
+
+To enable a secondary admin, set `SECONDARY_ADMIN_EMAIL` and `SECONDARY_ADMIN_PASSWORD` in `backend/.env` and restart the backend. Use a separate strong password. This account can view the dashboard, registered users, plans, audit events, health status, and CSV exports, but the server blocks account edits and deletions. The existing admin credentials remain the superuser and keep full admin permissions. Admin sign-ins use short-lived server-issued tokens; the backend expires them after 12 hours and clears them when it restarts.
+
+The backend also reads the project-root `.env` file for server-side keys, without overriding values already set in `backend/.env`. Keep Google and hotel-provider keys unprefixed (not `EXPO_PUBLIC_`) so Expo does not bundle them into the app. Start the API with `node server.js` from the project root, then start Expo. Accommodation offers come only from the configured hotel provider; static catalog entries and map place listings are not shown as stays. Attraction search uses OpenStreetMap/Nominatim. Google Places photo lookup is best effort and may attach photos only to matching accommodation listings when configured. Google Places photo usage may incur billing and requires displaying photo/author attribution. The curated attraction catalog remains available when a remote attraction search is unavailable. Live hotel offers can optionally come from Nuitee Connect, ScrapeBadger Google Hotels, or Amadeus.
+
+Hotelbeds can also be selected with `HOTEL_API_PROVIDER=hotelbeds`. Add `HOTELBEDS_API_KEY` and `HOTELBEDS_API_SECRET` to `backend/.env`; the default base URL is the Hotelbeds test environment (`https://api.test.hotelbeds.com`). The backend signs requests with Hotelbeds' SHA-256 `X-Signature`, loads the South African hotel content catalog in pages, finds properties within 100 km of each attraction by coordinates, checks date-specific availability, and combines rates with descriptions, facilities, addresses, and images from Hotelbeds content. When a nearby property has no available rate for the selected dates, it can still show Hotelbeds property content and photos, with price left unavailable. Images are served from Hotelbeds' GIATA image host; Google Places photo lookup is not used for Hotelbeds results. Search is for display only; booking/confirmation is not implemented. Hotelbeds recommends synchronizing static content instead of repeatedly fetching it in real time, so this integration caches the catalog for 24 hours in memory; restarting the backend clears that cache. For production, use a persistent content cache and credentials approved for the production endpoint. Check `/api/health` for `hotelProviderConfigured`, then open an attraction's stay list; provider errors appear as a warning and nearby place results remain the fallback.
+
+The accommodation screen uses Hotelbeds for live property details and rates. Travelers can select a check-in date and stay length, set a group of up to 27, choose one, two, or three guests per room, and add rooms. Room counts, check-in dates, and nights refresh Hotelbeds availability. The planner shows guests still needing a room and totals the selected rooms over the stay plus selected per-person attraction activities for the full group. Group size, room sharing/count, dates, nights, itemized estimate, references, method, and email status are saved to the Day Plan. `Reserve now` requires room allocation for the full group; it saves an in-app request but does not confirm a Hotelbeds booking or collect payment. Booking emails use separate `EMAILJS_BOOKING_SERVICE_ID`, `EMAILJS_BOOKING_TEMPLATE_ID`, `EMAILJS_BOOKING_PUBLIC_KEY`, and optional `EMAILJS_BOOKING_PRIVATE_KEY` values in `backend/.env`; they do not reuse the account email credentials. The template can use `to_email`, `to_name`, `booking_reference`, `payment_reference`, `property_name`, `attraction_name`, `check_in`, `check_out`, `guest_count`, `room_count`, `room_sharing`, `nights`, `activity_names`, `accommodation_total`, `activities_total`, `amount`, `currency`, `payment_method`, `booking_status`, `payment_status`, and `payment_notice`. Provider confirmation and payment processing remain pending.
 
 ### Firestore account and day-plan storage
 
 The API stores registered accounts, OTP challenges, and saved day plans in Cloud Firestore using the Firebase Admin SDK. Put the downloaded service-account JSON file in `backend/`; the provided `.gitignore` excludes Firebase Admin key files. Never add a service-account key to the app, share it, or commit it. If you use a different filename or location, set `FIREBASE_SERVICE_ACCOUNT_PATH` in `backend/.env` to its path relative to the project root. The service account must belong to the same Firebase project where you created Firestore. The backend requires Node.js 22 or newer.
+
+User API routes require a short-lived bearer session issued after email-code verification. The server stores only a hash of each session token in memory, expires sessions after 12 hours, and revokes them on logout, password reset, or account deletion. Restarting the server clears these sessions, so users need to sign in again. On iOS and Android, the app stores the session token in the platform secure store; browser builds use browser storage. Local account and plan caches still use AsyncStorage and are not encrypted by the app. Production builds use the HTTPS API URL configured in EAS; local development may use HTTP. This review has not included a full independent security assessment.
 
 To import the existing `data/app-data.json` records, run this once from the project root:
 
@@ -42,13 +65,31 @@ The admin console includes user search and filters, 7/30-day registration and pl
 
 Attraction search calls `GET /api/attractions?query=mountains` and combines OpenStreetMap/Nominatim results with the curated local attraction catalog. Search results include mapped coordinates and contributor-provided details when available, but images are representative category images and ratings and visitor information are not verified. Nominatim is a community service with strict fair-use limits; the backend serializes requests, waits at least one second between searches, and briefly caches results. Display `© OpenStreetMap contributors` attribution wherever these results are shown.
 
-The attraction detail screen queries nearby stays, restaurants, and fuel from `GET /api/nearby-places?lat=...&lng=...&category=all`. The backend posts a small-radius query to `https://overpass-api.de/api/interpreter` and retries via `https://overpass.kumi.systems/api/interpreter` if the primary public server is unavailable. Overpass results include mapped names and coordinates when contributors have recorded them; the app calculates approximate straight-line distances and can request driving routes separately. OSM does not provide dependable prices, ratings, booking availability, or photos. Public Overpass servers can be busy and enforce fair-use limits, so results are cached briefly and failures are reported. Display `© OpenStreetMap contributors` attribution wherever these results are shown.
+The attraction detail screen shows accommodation offers from the configured hotel provider. The “Show distance from my location” control asks for foreground location permission and calculates approximate straight-line distance to listings on the device. The location is not sent to the backend. Attraction search results use OpenStreetMap/Nominatim; display OpenStreetMap attribution wherever those results are shown.
 
-Google Routes API (`POST /api/route-distances`) can calculate driving distance and estimated time only for entries with verified coordinates. It is optional and requires a separate `GOOGLE_ROUTES_API_KEY` in `backend/.env`; this endpoint is distinct from Places API and may require Google Cloud billing. Opening Google Maps directions from the app uses a Maps URL and does not call Places API.
+When no hotel-offer provider is configured or it returns no properties, the accommodation list remains empty and displays a provider warning. Non-Hotelbeds nearby and static catalog properties are not substituted into the Hotelbeds offer list. Property details, prices, ratings, and availability are shown only when provided by the configured hotel provider. Confirm rates and availability directly with the property or a booking provider.
 
-When no hotel-offer provider is configured, accommodation cards use nearby OpenStreetMap listings with unknown prices and availability. Property details, photos, prices, ratings, and availability are shown only when provided by the configured hotel provider or mapped OSM tags. Confirm rates and availability directly with the property or a booking provider.
+To use ScrapeBadger Google Hotels, put the API key in the server-side `backend/.env` file and select the provider:
 
-To show live hotel offers and nightly prices, configure Amadeus credentials in `backend/.env` and set `HOTEL_API_PROVIDER=amadeus`:
+```env
+HOTEL_API_PROVIDER=scrapebadger
+SCRAPEBADGER_API_KEY=your_scrapebadger_api_key
+```
+
+The backend searches Google Hotels using the attraction name and location and the requested stay dates and adult count, then maps available rates, ratings, amenities, and image URLs into the accommodation cards. It requests ZAR from ScrapeBadger and converts any foreign-currency rates returned by a provider into ZAR using the latest available Frankfurter exchange rates. If a currency rate is unavailable, that price is hidden rather than shown with a misleading currency label; the app reports the conversion date or issue. Converted amounts are reference estimates, so confirm the final price with the booking provider. ScrapeBadger searches cost credits per successful request and are cached by location and stay details for 10 minutes. Some properties may not include prices, images, or coordinates. If the provider fails or returns no properties, the list remains empty and displays a provider warning. Keep the key out of the mobile app and do not share or commit `backend/.env`.
+
+To show live hotel offers and nightly prices from Nuitee Connect, configure the Nuitee sandbox key in `backend/.env` and set `HOTEL_API_PROVIDER=nuitee`:
+
+```env
+HOTEL_API_PROVIDER=nuitee
+NUITEE_API_KEY=your_nuitee_sandbox_api_key
+NUITEE_API_BASE_URL=https://api.liteapi.travel/v3.0
+NUITEE_GUEST_NATIONALITY=ZA
+```
+
+Nuitee Connect authenticates with the server-side `X-API-Key` header. The backend searches a 20 km radius around the selected attraction, with the requested dates and guest count, and maps available rates and hotel details into the accommodation cards. The current screen defaults to dates seven and nine days from today and two adults; the API accepts explicit dates and occupancy, but date and guest selectors are not available on the screen yet. The sandbox is for testing only; do not expect its rates or availability to represent production inventory. This integration searches and displays offers only; it does not prebook or complete reservations. Keep the key private and out of the mobile app.
+
+To show live hotel offers from Amadeus instead, configure credentials in `backend/.env` and set `HOTEL_API_PROVIDER=amadeus`:
 
 ```env
 HOTEL_API_PROVIDER=amadeus
@@ -107,6 +148,5 @@ src/
 
 - **Fonts**: Fraunces/Outfit are pulled from `@expo-google-fonts/*` packages rather than a `<link>` tag. If you'd rather bundle local `.ttf` files, swap the `useFonts` calls in `App.tsx`.
 - **Slider styling**: `@react-native-community/slider` doesn't support the custom gradient-fill thumb CSS trick from the web version — it uses native track/thumb tint colors instead, which look slightly different per platform (this is expected/native behavior, not a bug).
-- **Auth is still mocked** — `setTimeout` fake network delay, no real backend. Wire up your API of choice in `LoginScreen`/`RegisterScreen`'s `submit()`.
 - **Screen transitions**: no slide/fade animation between screens yet since routing is just conditional rendering. If you want native stack transitions, wrap this in `@react-navigation/native-stack` — the screens are already split out to make that a quick swap.
-- I haven't run `npm install` / `expo start` in this environment (no device/simulator here), so please do a first `npx expo start` pass and report back if anything doesn't compile — happy to fix.
+- Verify camera, photo-library, and location permission flows on physical Android and iOS devices before store submission.

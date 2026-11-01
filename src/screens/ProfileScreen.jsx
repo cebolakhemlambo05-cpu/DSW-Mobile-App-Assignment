@@ -4,6 +4,7 @@ import * as ImagePicker from "expo-image-picker";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, fonts } from "../theme/theme";
 import { IconBack } from "../components/Icons";
+import { fetchUserActivity } from "../services/placesService";
 
 export default function ProfileScreen({ user, onBack, onAdmin, onSave, onDelete }) {
   const [firstName, setFirstName] = useState(user.firstName || "");
@@ -13,6 +14,9 @@ export default function ProfileScreen({ user, onBack, onAdmin, onSave, onDelete 
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [pickingPhoto, setPickingPhoto] = useState(false);
+  const [activity, setActivity] = useState([]);
+  const [activityLoading, setActivityLoading] = useState(true);
+  const [activityError, setActivityError] = useState("");
 
   useEffect(() => {
     setFirstName(user.firstName || "");
@@ -20,6 +24,30 @@ export default function ProfileScreen({ user, onBack, onAdmin, onSave, onDelete 
     setNationality(user.nationality || "");
     setProfilePhoto(user.profilePhoto || null);
   }, [user.firstName, user.lastName, user.nationality, user.profilePhoto]);
+
+  useEffect(() => {
+    let active = true;
+    setActivityLoading(true);
+    setActivityError("");
+    fetchUserActivity(user.email)
+      .then((result) => { if (active) setActivity(result.events || []); })
+      .catch((error) => { if (active) setActivityError(error.message || "Unable to load activity history."); })
+      .finally(() => { if (active) setActivityLoading(false); });
+    return () => { active = false; };
+  }, [user.email]);
+
+  const reloadActivity = async () => {
+    setActivityLoading(true);
+    setActivityError("");
+    try {
+      const result = await fetchUserActivity(user.email);
+      setActivity(result.events || []);
+    } catch (error) {
+      setActivityError(error.message || "Unable to load activity history.");
+    } finally {
+      setActivityLoading(false);
+    }
+  };
 
   const save = async () => {
     setSaving(true);
@@ -87,7 +115,17 @@ export default function ProfileScreen({ user, onBack, onAdmin, onSave, onDelete 
   const removeAccount = () => {
     Alert.alert("Delete account", "This permanently removes your account and saved plans.", [
       { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: onDelete },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await onDelete();
+          } catch (error) {
+            Alert.alert("Unable to delete account", error.message || "Please try again when you are online.");
+          }
+        },
+      },
     ]);
   };
 
@@ -150,9 +188,63 @@ export default function ProfileScreen({ user, onBack, onAdmin, onSave, onDelete 
           {user.isAdmin && <Pressable onPress={onAdmin} style={styles.secondary}><Text style={styles.secondaryText}>Open admin dashboard</Text></Pressable>}
           <Pressable onPress={removeAccount} style={styles.delete}><Text style={styles.deleteText}>Delete my account</Text></Pressable>
         </View>
+        <View style={styles.activityCard}>
+          <View style={styles.activityHeading}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.activityTitle}>Activity timeline</Text>
+              <Text style={styles.activityIntro}>Account and Day Plan changes recorded for your account.</Text>
+            </View>
+            <Pressable onPress={reloadActivity} disabled={activityLoading} accessibilityRole="button" accessibilityLabel="Refresh activity history">
+              <Text style={styles.refreshText}>{activityLoading ? "Loading" : "Refresh"}</Text>
+            </Pressable>
+          </View>
+          <Text style={styles.activityNote}>This history records sign-up, profile updates, and saved Day Plan changes. Searches, pages viewed, and button taps are not tracked here. Earlier activity may be unavailable if it happened before history tracking began.</Text>
+          {activityLoading ? (
+            <ActivityIndicator color={colors.terra} style={{ marginVertical: 18 }} />
+          ) : activityError ? (
+            <Text style={styles.activityError}>{activityError}</Text>
+          ) : activity.length === 0 ? (
+            <Text style={styles.emptyActivity}>No account activity recorded yet.</Text>
+          ) : activity.map((event, index) => (
+            <View key={event.id || `${event.action}-${event.occurredAt}-${index}`} style={styles.timelineRow}>
+              <View style={styles.timelineMarker}><View style={styles.timelineDot} />{index < activity.length - 1 && <View style={styles.timelineLine} />}</View>
+              <View style={styles.timelineContent}>
+                <Text style={styles.timelineAction}>{activityTitle(event.action)}</Text>
+                <Text style={styles.timelineDetail}>{activityDetail(event)}</Text>
+                <Text style={styles.timelineDate}>{formatActivityDate(event.occurredAt)}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
       </ScrollView>
     </View>
   );
+}
+
+function activityTitle(action = "") {
+  const labels = {
+    "account.registered": "Account created",
+    "profile.updated": "Profile updated",
+    "plan.saved": "Day Plan saved",
+    "account.deleted": "Account deleted",
+  };
+  return labels[action] || String(action).replace(/[._]/g, " ");
+}
+
+function activityDetail(event) {
+  if (event.action === "plan.saved" && Number.isFinite(Number(event.metadata?.destinationCount))) {
+    const count = Number(event.metadata.destinationCount);
+    return `${count} destination${count === 1 ? "" : "s"} in your plan`;
+  }
+  if (event.action === "profile.updated" && event.metadata?.profilePhotoChanged) {
+    return "Personal details or profile picture changed";
+  }
+  return "Account activity";
+}
+
+function formatActivityDate(value) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "Date unavailable" : date.toLocaleString();
 }
 
 function Field({ label, value, onChangeText, editable = true }) {
@@ -187,4 +279,20 @@ const styles = StyleSheet.create({
   primary: { backgroundColor: colors.terra, paddingVertical: 15, borderRadius: 16, alignItems: "center", marginTop: 4 }, primaryText: { color: colors.ivory, fontFamily: fonts.bodyBold },
   secondary: { borderWidth: 1.5, borderColor: colors.savanna, paddingVertical: 14, borderRadius: 16, alignItems: "center" }, secondaryText: { color: colors.savanna, fontFamily: fonts.bodySemiBold },
   delete: { alignItems: "center", padding: 10 }, deleteText: { color: colors.terra, fontFamily: fonts.bodySemiBold, fontSize: 12 },
+  activityCard: { width: "100%", maxWidth: 520, alignSelf: "center", marginTop: 22, padding: 18, borderRadius: 18, backgroundColor: colors.ivory, borderWidth: 1, borderColor: "rgba(62,50,38,0.1)" },
+  activityHeading: { flexDirection: "row", alignItems: "center", gap: 12 },
+  activityTitle: { color: colors.savanna, fontFamily: fonts.display, fontSize: 19 },
+  activityIntro: { color: colors.charcoal, opacity: 0.65, fontSize: 11, lineHeight: 16, marginTop: 3 },
+  refreshText: { color: colors.terra, fontFamily: fonts.bodySemiBold, fontSize: 11, padding: 8 },
+  activityNote: { color: colors.charcoal, opacity: 0.58, fontSize: 10, lineHeight: 15, marginTop: 13, marginBottom: 5 },
+  activityError: { color: colors.terra, fontSize: 12, lineHeight: 17, paddingVertical: 14 },
+  emptyActivity: { color: colors.charcoal, opacity: 0.6, fontSize: 12, paddingVertical: 16 },
+  timelineRow: { flexDirection: "row", minHeight: 67 },
+  timelineMarker: { width: 20, alignItems: "center" },
+  timelineDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: colors.terra, marginTop: 5 },
+  timelineLine: { width: 1, flex: 1, backgroundColor: "#D9D2C5", marginTop: 4 },
+  timelineContent: { flex: 1, paddingLeft: 10, paddingBottom: 13 },
+  timelineAction: { color: colors.charcoal, fontFamily: fonts.bodySemiBold, fontSize: 12 },
+  timelineDetail: { color: colors.charcoal, opacity: 0.66, fontSize: 10, marginTop: 3 },
+  timelineDate: { color: colors.charcoal, opacity: 0.5, fontSize: 9, marginTop: 4 },
 });

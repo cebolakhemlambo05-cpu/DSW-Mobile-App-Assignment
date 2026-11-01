@@ -3,26 +3,69 @@
     "name": "ALL-IN-ONE-PLANNER",
     "slug": "all-in-one-planner",
     "version": "1.0.0",
+    "icon": "./assets/app-icon.png",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "splash": {
-      "image": "./data/images/logo.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#E8DCC4"
+    "web": {
+      "bundler": "metro",
+      "output": "single"
     },
     "assetBundlePatterns": [
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true
-    },
-    "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#E8DCC4"
+      "supportsTablet": true,
+      "bundleIdentifier": "com.cebolakhemlambo.allinoneplanner",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "Allow ALL-IN-ONE PLANNER to take photos of landmarks for Travel Lens."
       }
     },
+    "android": {
+      "package": "com.cebolakhemlambo.allinoneplanner",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/app-icon.png",
+        "backgroundColor": "#E8DCC4"
+      },
+      "permissions": [
+        "android.permission.CAMERA"
+      ]
+    },
     "plugins": [
-      "expo-secure-store"
-    ]
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow ALL-IN-ONE PLANNER to use a profile photo you choose.",
+          "cameraPermission": "Allow ALL-IN-ONE PLANNER to take photos of landmarks for Travel Lens.",
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/app-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#E8DCC4"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": false,
+          "locationAlwaysPermission": false,
+          "locationWhenInUsePermission": "Allow ALL-IN-ONE PLANNER to calculate approximate distances to accommodations near your trip.",
+          "locationFullAccuracyPermission": false,
+          "motionUsagePermission": false
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "2dd22ad1-2569-4755-ad42-a4ba222b3284"
+      }
+    },
+    "owner": "cebolakhe"
   }
 }
