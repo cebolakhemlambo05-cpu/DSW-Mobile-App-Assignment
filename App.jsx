@@ -95,6 +95,13 @@ function PlannerApp() {
   useEffect(() => {
     let active = true;
 
+    if (resetParams) {
+      setRestoringSession(false);
+      return () => {
+        active = false;
+      };
+    }
+
     const restore = async () => {
       try {
         const session = await restoreActiveSession();

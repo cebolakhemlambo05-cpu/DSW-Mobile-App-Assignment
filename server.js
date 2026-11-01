@@ -117,9 +117,32 @@ function isAdminEmail(email) {
 }
 
 function getRequestOrigin(req) {
-  return (
-    process.env.APP_BASE_URL || req.get('origin') || 'http://localhost:8081'
-  );
+  const configuredOrigin = process.env.APP_BASE_URL?.trim();
+  const requestOrigin = req.get('origin')?.trim();
+  const origin =
+    configuredOrigin ||
+    (requestOrigin && requestOrigin !== 'null' ? requestOrigin : '');
+
+  if (!origin) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(
+        'APP_BASE_URL must be configured before sending password reset links from production.'
+      );
+    }
+    return 'http://localhost:8082';
+  }
+
+  let parsedOrigin;
+  try {
+    parsedOrigin = new URL(origin);
+  } catch {
+    throw new Error('APP_BASE_URL or the request origin must be a valid HTTP URL.');
+  }
+  if (!['http:', 'https:'].includes(parsedOrigin.protocol)) {
+    throw new Error('APP_BASE_URL or the request origin must use HTTP or HTTPS.');
+  }
+
+  return parsedOrigin.origin;
 }
 
 async function sendEmailJsTemplate({
@@ -2703,9 +2726,8 @@ app.post("/api/auth/request-password-reset", async (req, res) => {
   user.resetPasswordExpiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
   await saveUser(user);
 
-  const resetLink = `${getRequestOrigin(req).replace(/\/$/, "")}/?resetToken=${encodeURIComponent(token)}&email=${encodeURIComponent(cleanEmail)}`;
-
   try {
+    const resetLink = `${getRequestOrigin(req)}/?resetToken=${encodeURIComponent(token)}&email=${encodeURIComponent(cleanEmail)}`;
     await sendPasswordResetEmail({ user, resetLink });
     return res.json({ ok: true });
   } catch (error) {

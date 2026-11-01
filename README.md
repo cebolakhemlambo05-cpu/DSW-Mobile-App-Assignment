@@ -35,6 +35,14 @@ ADMIN_PASSWORD=replace_with_a_strong_unique_password
 
 Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` to your admin login credentials in `backend/.env`; do not put them in the app or share/commit that file. Restart the backend after changing credentials.
 
+Password-reset emails use `EMAILJS_TEMPLATE_ID` and pass the reset URL as
+`reset_link` (also available as `link`). The URL must open the web app, not the
+API server. For local web testing, the app runs at `http://localhost:8082`; set
+`APP_BASE_URL=http://localhost:8082` if the reset request does not include a
+browser origin. In Render, set `APP_BASE_URL` to the public HTTPS web-app URL.
+This is required for password-reset requests from mobile clients, which do not
+send a browser origin. Never use a localhost URL for a deployed app.
+
 ### Admin website and secondary admin
 
 The same login screen serves the mobile app and browser version. From the project folder, run `npm run web` to open the responsive browser app; signing in with the existing `ADMIN_EMAIL` and `ADMIN_PASSWORD` opens the admin console. Registered users continue into their planner, and unknown email/password combinations are rejected. The browser console and mobile app use the same API and Firestore records. The admin console refreshes every 15 seconds, and an active user app syncs account and plan data every 30 seconds.
