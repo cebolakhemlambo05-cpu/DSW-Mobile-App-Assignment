@@ -66,11 +66,16 @@ async function removeUser(email) {
   await users.doc(documentId(email)).delete();
 }
 
-async function recordAuditEvent(event) {
-  await auditEvents.add({
+async function recordAuditEvent(event, eventId) {
+  const record = {
     ...event,
     occurredAt: new Date().toISOString(),
-  });
+  };
+  if (eventId) {
+    await auditEvents.doc(eventId).set(record);
+    return;
+  }
+  await auditEvents.add(record);
 }
 
 async function getAuditEvents(limit = 100) {

@@ -42,6 +42,8 @@ const theme_1 = require("../theme/theme");
 const attractions_1 = require("../data/attractions");
 const format_1 = require("../utils/format");
 const Icons_1 = require("../components/Icons");
+const PhotoImage_1 = require("../components/PhotoImage");
+const imageDefaults_1 = require("../utils/imageDefaults");
 function DayPlanScreen({ plan, onBack, onRemove, onClearAll, onSelectAttraction, onGroupSizeChange, }) {
     const initialGuests = plan.find((entry) => Number.isInteger(entry.groupSize || entry.booking?.adults))?.groupSize || plan.find((entry) => Number.isInteger(entry.booking?.adults))?.booking.adults || 1;
     const [groupSize, setGroupSize] = (0, react_1.useState)(initialGuests);
@@ -108,7 +110,7 @@ function DayPlanScreen({ plan, onBack, onRemove, onClearAll, onSelectAttraction,
                 const attraction = attractions_1.ATTRACTIONS.find((a) => a.id === entry.attractionId);
                 return (<react_native_1.View key={entry.attractionId} style={styles.entryCard}>
                     <react_native_1.View style={styles.entryHero}>
-                      <react_native_1.Image source={{ uri: attraction.image }} style={styles.entryImage}/>
+                      <PhotoImage_1.default uri={attraction.image} fallbackUri={imageDefaults_1.getAttractionFallbackImage(attraction)} style={styles.entryImage}/>
                       <expo_linear_gradient_1.LinearGradient colors={["rgba(0,0,0,0.5)", "transparent"]} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={react_native_1.StyleSheet.absoluteFill}/>
                       <react_native_1.View style={styles.entryHeroContent}>
                         <react_native_1.View style={{ flex: 1 }}>
@@ -189,7 +191,7 @@ function DayPlanScreen({ plan, onBack, onRemove, onClearAll, onSelectAttraction,
                 </react_native_1.View>
                 <react_native_1.Text style={styles.grandTotalValue}>{(0, format_1.fmt)(grandTotal)}</react_native_1.Text>
               </react_native_1.View>
-              {guestsNeedingRooms > 0 && <react_native_1.Text style={styles.groupSubtitle}>{guestsNeedingRooms} guests still need room allocation. The estimate includes the selected rooms and planned activities.</react_native_1.Text>}
+              {guestsNeedingRooms > 0 &&               <react_native_1.Text style={styles.groupNotice}>{guestsNeedingRooms} guests still need room allocation. The estimate includes the selected rooms and planned activities.</react_native_1.Text>}
             </react_native_1.View>
           </>)}
       </react_native_1.ScrollView>
@@ -213,7 +215,7 @@ const styles = react_native_1.StyleSheet.create({
     groupRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     groupInfo: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
     groupTitle: { fontSize: 12, fontFamily: theme_1.fonts.bodySemiBold, letterSpacing: 0.3, textTransform: "uppercase", color: theme_1.colors.sky },
-    groupSubtitle: { fontSize: 10, color: theme_1.colors.charcoal, opacity: 0.5, marginTop: 2 },
+    groupSubtitle: { flexShrink: 1, fontSize: 12, lineHeight: 18, color: "rgba(45,42,36,0.68)", marginTop: 4 },
     stepperRow: { flexDirection: "row", alignItems: "center", gap: 10 },
     stepperBtn: { width: 32, height: 32, borderRadius: 10, backgroundColor: theme_1.colors.sand, alignItems: "center", justifyContent: "center" },
     stepperBtnText: { fontSize: 18, fontFamily: theme_1.fonts.bodyBold, color: theme_1.colors.charcoal },
@@ -235,14 +237,15 @@ const styles = react_native_1.StyleSheet.create({
     lineValue: { fontSize: 14, fontFamily: theme_1.fonts.bodySemiBold, color: theme_1.colors.charcoal },
     lineUnit: { fontSize: 11, fontFamily: theme_1.fonts.body, opacity: 0.5 },
     breakdownCard: { borderRadius: 18, padding: 20, backgroundColor: theme_1.colors.savanna },
-    breakdownTitle: { fontSize: 11, fontFamily: theme_1.fonts.bodySemiBold, letterSpacing: 1, textTransform: "uppercase", color: "rgba(232,220,196,0.6)", marginBottom: 12 },
-    breakdownRow: { flexDirection: "row", justifyContent: "space-between" },
-    breakdownLabel: { fontSize: 13, color: "rgba(232,220,196,0.8)" },
-    breakdownValue: { fontSize: 13, fontFamily: theme_1.fonts.bodySemiBold, color: theme_1.colors.ivory },
+    breakdownTitle: { fontSize: 11, fontFamily: theme_1.fonts.bodySemiBold, letterSpacing: 1, textTransform: "uppercase", color: "rgba(250,246,239,0.82)", marginBottom: 12 },
+    breakdownRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 12 },
+    breakdownLabel: { flex: 1, flexShrink: 1, fontSize: 13, lineHeight: 19, color: "rgba(250,246,239,0.9)" },
+    breakdownValue: { maxWidth: "48%", flexShrink: 1, fontSize: 13, textAlign: "right", fontFamily: theme_1.fonts.bodySemiBold, color: theme_1.colors.ivory },
     perPersonRow: { borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.1)", paddingTop: 8 },
-    perPersonLabel: { fontSize: 11, color: "rgba(232,220,196,0.6)" },
-    grandTotalRow: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.2)", paddingTop: 16 },
-    grandTotalLabel: { fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, color: "rgba(232,220,196,0.6)" },
-    perPersonNote: { fontSize: 11, color: "rgba(232,220,196,0.6)", marginTop: 2 },
-    grandTotalValue: { fontSize: 30, fontFamily: theme_1.fonts.display, color: theme_1.colors.ivory },
+    perPersonLabel: { flex: 1, flexShrink: 1, fontSize: 12, lineHeight: 18, color: "rgba(250,246,239,0.82)" },
+    grandTotalRow: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: 8, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.2)", paddingTop: 16 },
+    grandTotalLabel: { fontSize: 11, lineHeight: 16, textTransform: "uppercase", letterSpacing: 0.5, color: "rgba(250,246,239,0.82)" },
+    perPersonNote: { fontSize: 12, lineHeight: 18, color: "rgba(250,246,239,0.82)", marginTop: 3 },
+    grandTotalValue: { flexShrink: 1, maxWidth: "58%", textAlign: "right", fontSize: 28, fontFamily: theme_1.fonts.display, color: theme_1.colors.ivory },
+    groupNotice: { fontSize: 12, lineHeight: 18, color: "rgba(250,246,239,0.82)", marginTop: 8 },
 });

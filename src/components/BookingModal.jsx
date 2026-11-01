@@ -17,6 +17,11 @@ function createReference(prefix) {
   return `${prefix}-${new Date().toISOString().slice(2, 10).replace(/-/g, "")}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 }
 
+function createPaymentReference() {
+  const suffix = Math.floor(Math.random() * 1000).toString().padStart(3, "0");
+  return `PAY@${Date.now()}${suffix}`;
+}
+
 function nightsBetween(checkIn, checkOut) {
   const nights = Math.round((new Date(`${checkOut}T00:00:00`) - new Date(`${checkIn}T00:00:00`)) / 86400000);
   return Number.isFinite(nights) && nights > 0 ? nights : 0;
@@ -87,7 +92,7 @@ export default function BookingModal({
     }
     setBooking({
       bookingReference: createReference("AIO"),
-      paymentReference: createReference("PAY"),
+      paymentReference: createPaymentReference(),
       accommodationId: accommodation.id,
       guestName: fullName.trim(),
       guestEmail: email.trim(),

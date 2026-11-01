@@ -9,6 +9,8 @@ const react_native_1 = require("react-native");
 const expo_linear_gradient_1 = require("expo-linear-gradient");
 const theme_1 = require("../theme/theme");
 const Icons_1 = require("./Icons");
+const PhotoImage_1 = __importDefault(require("./PhotoImage"));
+const imageDefaults_1 = require("../utils/imageDefaults");
 const CATEGORY_COLOR = {
     Wildlife: "#3A5A40",
     Mountains: "#5a7a60",
@@ -27,7 +29,11 @@ function AttractionCard({ attraction: a, budget, onPress, }) {
       style={({ pressed }) => [styles.card, pressed && { opacity: 0.9 }]}
     >
       <react_native_1.View style={styles.imageWrap}>
-        <react_native_1.Image source={{ uri: a.image }} style={styles.image} />
+        <PhotoImage_1.default
+          uri={a.image}
+          fallbackUri={imageDefaults_1.getAttractionFallbackImage(a)}
+          style={styles.image}
+        />
         <expo_linear_gradient_1.LinearGradient
           colors={['rgba(0,0,0,0.45)', 'transparent']}
           style={react_native_1.StyleSheet.absoluteFill}
@@ -160,13 +166,12 @@ const styles = react_native_1.StyleSheet.create({
     footer: {
         paddingHorizontal: 14,
         paddingVertical: 12,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
+        alignItems: "flex-start",
+        gap: 6,
     },
     fromLabel: { fontSize: 10, fontFamily: theme_1.fonts.bodySemiBold, color: theme_1.colors.charcoal, opacity: 0.5, textTransform: "uppercase", letterSpacing: 0.3 },
     price: { fontSize: 16, fontFamily: theme_1.fonts.display, color: theme_1.colors.charcoal, marginTop: 2 },
     perNight: { fontSize: 11, fontFamily: theme_1.fonts.body, opacity: 0.5 },
-    budgetPill: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12 },
-    budgetText: { fontSize: 11, fontFamily: theme_1.fonts.bodySemiBold },
+    budgetPill: { maxWidth: "100%", alignSelf: "flex-start", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12 },
+    budgetText: { flexShrink: 1, fontSize: 11, lineHeight: 16, fontFamily: theme_1.fonts.bodySemiBold },
 });

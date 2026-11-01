@@ -28,7 +28,9 @@
         "backgroundColor": "#E8DCC4"
       },
       "permissions": [
-        "android.permission.CAMERA"
+        "android.permission.CAMERA",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
       ]
     },
     "plugins": [
@@ -63,9 +65,9 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "2dd22ad1-2569-4755-ad42-a4ba222b3284"
+        "projectId": "1874b13d-27a2-4891-9f59-52f1aa6e362c"
       }
     },
-    "owner": "cebolakhe"
+    "owner": "sfundo99"
   }
 }

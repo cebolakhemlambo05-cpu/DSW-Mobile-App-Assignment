@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ActivityIndicator, Image, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Image, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { identifyLandmark } from "../services/featureService";
@@ -8,6 +8,8 @@ import { colors, fonts } from "../theme/theme";
 import { IconBack } from "../components/Icons";
 
 export default function TravelLensScreen({ user, onBack, onSelectAttraction }) {
+  const { height: viewportHeight } = useWindowDimensions();
+  const cameraHeight = Math.min(360, Math.max(220, viewportHeight * 0.32));
   const [photo, setPhoto] = useState(null);
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -27,7 +29,10 @@ export default function TravelLensScreen({ user, onBack, onSelectAttraction }) {
       const catalogue = ATTRACTIONS.map(({ id, name, location, description }) => ({ id, name, location, description }));
       setResult(await identifyLandmark(user?.email, asset.base64, catalogue));
     } catch (err) {
-      setError(err.message || "Could not process this image.");
+      const message = String(err.message || "");
+      setError(/not configured|OPENAI_API_KEY/i.test(message)
+        ? "Travel Lens isn't available on this service yet. Please try again later."
+        : message || "Could not process this image.");
     } finally {
       setLoading(false);
     }
@@ -62,7 +67,7 @@ export default function TravelLensScreen({ user, onBack, onSelectAttraction }) {
       </SafeAreaView>
       <ScrollView contentContainerStyle={styles.content}>
         {Platform.OS === "web" && <Text style={styles.note}>Browser camera access requires permission and HTTPS (or localhost).</Text>}
-        <View style={styles.cameraWrap}>
+        <View style={[styles.cameraWrap, { height: cameraHeight }]}>
           {photo ? <Image source={{ uri: photo }} style={styles.camera} resizeMode="cover" /> : <View style={styles.center}><Text style={styles.cameraGlyph}>📷</Text><Text style={styles.note}>Take a clear photo of a landmark to identify it.</Text></View>}
         </View>
         <View style={styles.actions}>
@@ -73,7 +78,6 @@ export default function TravelLensScreen({ user, onBack, onSelectAttraction }) {
             <Text style={styles.secondaryText}>Choose from photos</Text>
           </Pressable>
         </View>
-        {photo && <Image source={{ uri: photo }} style={styles.preview} resizeMode="cover" />}
         {!!error && <Text style={styles.error}>{error}</Text>}
         {result && <View style={styles.card}>
           <Text style={styles.label}>{result.status === "identified" ? "Identified landmark" : "Recognition result"}</Text>
@@ -85,7 +89,7 @@ export default function TravelLensScreen({ user, onBack, onSelectAttraction }) {
             {!!result.match.visitorInfo && <Text style={styles.visitor}>{result.match.visitorInfo}</Text>}
             <Text style={styles.meta}>Confidence: {Math.round((result.confidence || 0) * 100)}%</Text>
             <Pressable onPress={() => openAttraction(result.match)} style={styles.secondary}><Text style={styles.primaryText}>Open attraction</Text></Pressable>
-          </> : <><Text style={styles.body}>{result.message || "No matching landmark was found."}</Text>
+          </> : <><Text style={styles.body}>{result.message || "We couldn't recognize this landmark. Try a clearer photo or choose one of the suggested matches."}</Text>
             {(result.possibleMatches || []).map((item) => <Pressable key={item.id || item.name} onPress={() => openAttraction(item)} style={styles.matchRow}><Text style={styles.matchName}>{item.name}</Text><Text style={styles.meta}>{item.location}</Text></Pressable>)}
           </>}
         </View>}
@@ -112,7 +116,6 @@ const styles = StyleSheet.create({
   action: { width: "100%" },
   disabled: { opacity: 0.55 },
   primaryText: { color: colors.ivory, fontFamily: fonts.bodyBold },
-  preview: { height: 170, borderRadius: 18 },
   error: { color: colors.terra, fontFamily: fonts.bodySemiBold },
   card: { gap: 9, padding: 16, borderRadius: 18, backgroundColor: colors.ivory },
   label: { color: colors.sky, fontFamily: fonts.bodyBold, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.6 },

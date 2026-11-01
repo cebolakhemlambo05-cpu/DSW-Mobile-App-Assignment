@@ -11,6 +11,8 @@ const theme_1 = require("../theme/theme");
 const format_1 = require("../utils/format");
 const Badge_1 = __importDefault(require("./Badge"));
 const Icons_1 = require("./Icons");
+const PhotoImage_1 = __importDefault(require("./PhotoImage"));
+const imageDefaults_1 = require("../utils/imageDefaults");
 const { height: SCREEN_H, width: SCREEN_W } = react_native_1.Dimensions.get("window");
 function AccomDetailModal({ visible, accom, attractionName, photoWarning, isSelected, onClose, onSelect, onDirections, }) {
     if (!accom)
@@ -41,7 +43,11 @@ function AccomDetailModal({ visible, accom, attractionName, photoWarning, isSele
             : displayedReviewCount > 0
                 ? `Guest rating · ${displayedReviewCount} reviews · ${accom.source || "provider"}`
                 : `Provider rating · ${accom.source || "source unavailable"}; review count unavailable`;
-    const images = d.images?.length ? d.images : d.image ? [d.image] : [];
+    const images = d.images?.length
+        ? d.images
+        : d.image
+            ? [d.image]
+            : [imageDefaults_1.DEFAULT_ACCOMMODATION_IMAGE];
     const stars = Number.isFinite(displayedRating) ? Math.round(displayedRating) : 0;
     const checkPrices = async () => {
         const propertyWebsite = typeof d.website === "string" && /^https?:\/\//i.test(d.website)
@@ -71,7 +77,7 @@ function AccomDetailModal({ visible, accom, attractionName, photoWarning, isSele
           {images.length > 0 ? (
             <react_native_1.ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false}>
               {images.map((image, index) => (
-                <react_native_1.Image key={`${image}-${index}`} source={{ uri: image }} style={[styles.hero, { width: SCREEN_W }]} />
+                <PhotoImage_1.default key={`${image}-${index}`} uri={image} fallbackUri={imageDefaults_1.DEFAULT_ACCOMMODATION_IMAGE} style={[styles.hero, { width: SCREEN_W }]} />
               ))}
             </react_native_1.ScrollView>
           ) : (

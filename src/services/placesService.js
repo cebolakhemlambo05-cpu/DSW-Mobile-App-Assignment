@@ -13,9 +13,37 @@ import { restoreActiveSession } from "./offlineStore";
 // project root, e.g.  EXPO_PUBLIC_API_URL=http://192.168.1.42:3001/api
 // (useful for a production/staging backend that isn't your dev machine).
 
+function normalizeConfiguredApiBase(value) {
+  try {
+    const url = new URL(String(value).trim());
+    if (
+      ['http:', 'https:'].includes(url.protocol) &&
+      url.hostname &&
+      !url.username &&
+      !url.password
+    ) {
+      return String(value).trim().replace(/\/+$/, "");
+    }
+  } catch {
+    return "";
+  }
+  return "";
+}
+
+const configuredApiUrls = [
+  process.env.EXPO_PUBLIC_API_URL,
+  Constants.expoConfig?.extra?.publicApiUrl,
+].filter(Boolean);
+const configuredApiBase = configuredApiUrls
+  .map(normalizeConfiguredApiBase)
+  .find(Boolean);
+
 function resolveApiBase() {
-  if (process.env.EXPO_PUBLIC_API_URL) {
-    return process.env.EXPO_PUBLIC_API_URL;
+  if (configuredApiBase) return configuredApiBase;
+  if (configuredApiUrls.length) {
+    console.warn(
+      "[placesService] Ignoring EXPO_PUBLIC_API_URL because it is not a valid HTTP(S) backend URL."
+    );
   }
 
   if (Platform.OS === "web" && !__DEV__ && typeof window !== "undefined") {

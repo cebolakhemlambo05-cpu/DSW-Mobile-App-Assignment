@@ -51,6 +51,8 @@ const AccomDetailModal_1 = __importDefault(require("../components/AccomDetailMod
 const WeatherForecast_1 = __importDefault(require("../components/WeatherForecast"));
 const BookingModal_1 = __importDefault(require("../components/BookingModal"));
 const CheckInDatePicker_1 = __importDefault(require("../components/CheckInDatePicker"));
+const PhotoImage_1 = __importDefault(require("../components/PhotoImage"));
+const imageDefaults_1 = require("../utils/imageDefaults");
 const placesService_1 = require("../services/placesService");
 const expo_location_1 = require("expo-location");
 function dateAfterDays(days) {
@@ -324,7 +326,7 @@ function AttractionScreen({ attraction, onBack, onAddToPlan, onGoToPlan, existin
     return (<react_native_1.View style={styles.screen}>
       <react_native_1.ScrollView showsVerticalScrollIndicator={false}>
         <react_native_1.View style={styles.hero}>
-          <react_native_1.Image source={{ uri: attraction.image }} style={styles.heroImage}/>
+          <PhotoImage_1.default uri={attraction.image} fallbackUri={imageDefaults_1.getAttractionFallbackImage(attraction)} style={styles.heroImage}/>
           <expo_linear_gradient_1.LinearGradient colors={["rgba(0,0,0,0.3)", "transparent", "rgba(0,0,0,0.6)"]} locations={[0, 0.5, 1]} style={react_native_1.StyleSheet.absoluteFill}/>
           <react_native_1.Pressable onPress={onBack} style={styles.backBtn}>
             <Icons_1.IconBack color="#fff"/>

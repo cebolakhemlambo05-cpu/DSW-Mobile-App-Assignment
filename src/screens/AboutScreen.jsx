@@ -13,11 +13,15 @@ export default function AboutScreen({ onBack, onPrivacy, onAbout }) {
         <Pressable onPress={onBack} style={styles.back}>
           <IconBack color={colors.sand} />
         </Pressable>
-        <View style={styles.topLogo}><BrandLogo circle /></View>
-        <Text style={styles.title}>About All-In-One-Planner</Text>
-        <Text style={styles.subtitle}>
-          Budget-first travel planning for South Africa.
-        </Text>
+        <View style={styles.headingRow}>
+          <BrandLogo circle />
+          <View style={styles.headingCopy}>
+            <Text style={styles.title}>About All-In-One-Planner</Text>
+            <Text style={styles.subtitle}>
+              Budget-first travel planning for South Africa.
+            </Text>
+          </View>
+        </View>
       </SafeAreaView>
 
       <ScrollView contentContainerStyle={styles.content}>
@@ -64,19 +68,19 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: colors.savanna,
     paddingHorizontal: 20,
-    paddingBottom: 26,
-    position: 'relative',
+    paddingBottom: 22,
   },
   back: {
     width: 36,
     height: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
-  topLogo: { position: 'absolute', top: 12, right: 20 },
-  title: { fontSize: 25, fontFamily: fonts.display, color: colors.ivory },
-  subtitle: { color: colors.sand, opacity: 0.75, marginTop: 5 },
+  headingRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  headingCopy: { flex: 1 },
+  title: { fontSize: 22, fontFamily: fonts.display, color: colors.ivory },
+  subtitle: { color: colors.sand, opacity: 0.75, marginTop: 5, fontSize: 12, lineHeight: 18 },
   content: { padding: 24, gap: 12 },
   heading: {
     fontSize: 15,

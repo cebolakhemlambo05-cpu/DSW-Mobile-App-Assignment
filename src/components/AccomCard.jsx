@@ -10,6 +10,8 @@ const theme_1 = require("../theme/theme");
 const Icons_1 = require("./Icons");
 const Badge_1 = __importDefault(require("./Badge"));
 const format_1 = require("../utils/format");
+const PhotoImage_1 = __importDefault(require("./PhotoImage"));
+const imageDefaults_1 = require("../utils/imageDefaults");
 function AccomCard({ accom: ac, selected, onView, onSelect, onDirections, overBudget = false, }) {
     const ratingSummary = ac.source === "Hotelbeds"
         ? `${ac.rating}-star property class`
@@ -32,19 +34,18 @@ function AccomCard({ accom: ac, selected, onView, onSelect, onDirections, overBu
           },
         ]}
       >
-        {!!ac.details?.image && (
-          <react_native_1.View>
-            <react_native_1.Image
-              source={{ uri: ac.details.image }}
-              style={styles.photo}
-              accessibilityLabel={`Photo of ${ac.name}`}
-            />
-            <react_native_1.Text style={styles.photoAttribution}>
-              Photo: {ac.details.imageAttribution || "Accommodation"}
-              {photoCredits ? ` · ${photoCredits}` : ""}
-            </react_native_1.Text>
-          </react_native_1.View>
-        )}
+        <react_native_1.View>
+          <PhotoImage_1.default
+            uri={ac.details?.image || ac.image}
+            fallbackUri={imageDefaults_1.DEFAULT_ACCOMMODATION_IMAGE}
+            style={styles.photo}
+            accessibilityLabel={`Photo of ${ac.name}`}
+          />
+          <react_native_1.Text style={styles.photoAttribution}>
+            Photo: {ac.details?.imageAttribution || (ac.source === "Hotelbeds" ? "Hotelbeds" : "Illustrative photo")}
+            {photoCredits ? ` · ${photoCredits}` : ""}
+          </react_native_1.Text>
+        </react_native_1.View>
         <react_native_1.Pressable onPress={onView} style={styles.mainArea}>
           <react_native_1.View style={styles.topRow}>
             <react_native_1.View style={{ flex: 1 }}>
@@ -218,7 +219,7 @@ function AccomCard({ accom: ac, selected, onView, onSelect, onDirections, overBu
                 opacity: selected ? 1 : 0.45,
               },
             ]}
-            numberOfLines={1}
+            numberOfLines={2}
           >
             {(ac.details?.amenities || []).slice(0, 2).join(' · ')}
           </react_native_1.Text>

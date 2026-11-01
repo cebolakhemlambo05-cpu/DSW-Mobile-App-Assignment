@@ -3,12 +3,14 @@ services:
     name: all-in-one-planner
     runtime: node
     plan: free
-    buildCommand: npm ci
+    buildCommand: npm ci && npm run build:web
     startCommand: npm run server
     healthCheckPath: /api/health
     envVars:
       - key: NODE_VERSION
         value: 22.14.0
+      - key: SERVE_WEB_APP
+        value: "true"
       - key: HOTEL_API_PROVIDER
         value: hotelbeds
       - key: HOTELBEDS_API_BASE_URL

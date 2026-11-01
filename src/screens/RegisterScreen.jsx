@@ -615,7 +615,10 @@ export default function RegisterScreen({
                 style={[styles.submitBtn, loading && { opacity: 0.8 }]}
               >
                 {loading ? (
-                  <ActivityIndicator color={colors.ivory} />
+                  <View style={styles.loadingRow}>
+                    <ActivityIndicator color={colors.ivory} />
+                    <Text style={styles.submitText}>Sending code...</Text>
+                  </View>
                 ) : (
                   <Text style={styles.submitText}>Create my account →</Text>
                 )}
@@ -655,7 +658,10 @@ export default function RegisterScreen({
                 style={[styles.submitBtn, loading && { opacity: 0.8 }]}
               >
                 {loading ? (
-                  <ActivityIndicator color={colors.ivory} />
+                  <View style={styles.loadingRow}>
+                    <ActivityIndicator color={colors.ivory} />
+                    <Text style={styles.submitText}>Verifying account...</Text>
+                  </View>
                 ) : (
                   <Text style={styles.submitText}>Verify and create account</Text>
                 )}
@@ -719,6 +725,7 @@ const styles = StyleSheet.create({
   termsText: { fontSize: 12, lineHeight: 17, color: colors.charcoal, opacity: 0.7, flex: 1 },
   termsLink: { textDecorationLine: "underline", color: colors.savanna },
   submitBtn: { paddingVertical: 16, borderRadius: 18, backgroundColor: colors.terra, alignItems: "center", marginTop: 6 },
+  loadingRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10 },
   submitText: { fontSize: 14, fontFamily: fonts.bodyBold, color: colors.ivory },
   dividerRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   dividerLine: { flex: 1, height: 1, backgroundColor: "rgba(62,50,38,0.12)" },

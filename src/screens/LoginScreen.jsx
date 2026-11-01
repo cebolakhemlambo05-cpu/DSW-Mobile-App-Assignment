@@ -169,15 +169,17 @@ export default function LoginScreen({
           </Pressable>
 
           <View style={styles.headerTextWrap}>
-            <BrandLogo dark compact />
-            <Text style={styles.title}>
-              {authStep === 'otp' ? 'Enter security code' : 'Welcome back'}
-            </Text>
-            <Text style={styles.subtitle}>
-              {authStep === 'otp'
-                ? 'Check your email for the 6-digit code'
-                : 'Sign in to access your day plans'}
-            </Text>
+            <BrandLogo dark circle />
+            <View style={styles.headerCopy}>
+              <Text style={styles.title}>
+                {authStep === 'otp' ? 'Enter security code' : 'Welcome back'}
+              </Text>
+              <Text style={styles.subtitle}>
+                {authStep === 'otp'
+                  ? 'Check your email for the 6-digit code'
+                  : 'Sign in to access your day plans'}
+              </Text>
+            </View>
           </View>
         </SafeAreaView>
 
@@ -332,9 +334,10 @@ export default function LoginScreen({
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   container: { flex: 1, backgroundColor: colors.sand },
-  header: { backgroundColor: colors.savanna, paddingHorizontal: 20, paddingBottom: 32 },
+  header: { backgroundColor: colors.savanna, paddingHorizontal: 20, paddingBottom: 24 },
   backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: "rgba(255,255,255,0.1)", alignItems: "center", justifyContent: "center", marginBottom: 8 },
-  headerTextWrap: { alignItems: "center", paddingTop: 8 },
+  headerTextWrap: { flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 8 },
+  headerCopy: { flex: 1 },
   brand: { fontSize: 10, fontFamily: fonts.bodyBold, letterSpacing: 2, textTransform: "uppercase", color: "rgba(232,220,196,0.6)", marginBottom: 8 },
   title: { fontSize: 22, fontFamily: fonts.display, color: colors.ivory },
   subtitle: { fontSize: 13, color: "rgba(232,220,196,0.65)", marginTop: 4 },

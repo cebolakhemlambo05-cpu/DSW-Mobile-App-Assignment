@@ -72,10 +72,14 @@ export default function PrivacyScreen({ onBack, onPrivacy, onAbout, onManageAcco
         <Pressable onPress={onBack} style={styles.back} accessibilityLabel="Back">
           <IconBack color={colors.sand} />
         </Pressable>
-        <View style={styles.topLogo}><BrandLogo circle /></View>
-        <Text style={styles.eyebrow}>YOUR INFORMATION</Text>
-        <Text style={styles.title}>Privacy & data</Text>
-        <Text style={styles.subtitle}>What the planner stores, where it goes, and how to manage it.</Text>
+        <View style={styles.headingRow}>
+          <BrandLogo circle />
+          <View style={styles.headingCopy}>
+            <Text style={styles.eyebrow}>YOUR INFORMATION</Text>
+            <Text style={styles.title}>Privacy & data</Text>
+            <Text style={styles.subtitle}>What the planner stores, where it goes, and how to manage it.</Text>
+          </View>
+        </View>
       </SafeAreaView>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.securityCard}>
@@ -104,12 +108,13 @@ export default function PrivacyScreen({ onBack, onPrivacy, onAbout, onManageAcco
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.sand },
-  header: { backgroundColor: colors.savanna, paddingHorizontal: 20, paddingBottom: 23, position: "relative" },
-  back: { width: 36, height: 36, alignItems: "center", justifyContent: "center", marginBottom: 9 },
-  topLogo: { position: "absolute", top: 12, right: 20 },
+  header: { backgroundColor: colors.savanna, paddingHorizontal: 20, paddingBottom: 22 },
+  back: { width: 36, height: 36, alignItems: "center", justifyContent: "center", marginBottom: 8 },
+  headingRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  headingCopy: { flex: 1 },
   eyebrow: { color: colors.sand, opacity: 0.62, fontSize: 9, fontFamily: fonts.bodySemiBold, letterSpacing: 1.5 },
-  title: { fontSize: 25, fontFamily: fonts.display, color: colors.ivory, marginTop: 3 },
-  subtitle: { color: colors.sand, opacity: 0.76, marginTop: 5, fontSize: 12, lineHeight: 18, maxWidth: 330 },
+  title: { fontSize: 22, fontFamily: fonts.display, color: colors.ivory, marginTop: 3 },
+  subtitle: { color: colors.sand, opacity: 0.76, marginTop: 5, fontSize: 12, lineHeight: 18 },
   content: { padding: 18, gap: 12, paddingBottom: 32 },
   securityCard: { flexDirection: "row", gap: 12, padding: 15, borderRadius: 15, backgroundColor: colors.ivory, borderWidth: 1, borderColor: "#D8DFD3" },
   securityIcon: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: "#E7EBDD" },

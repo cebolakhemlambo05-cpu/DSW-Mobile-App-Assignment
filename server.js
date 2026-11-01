@@ -117,32 +117,33 @@ function isAdminEmail(email) {
 }
 
 function getRequestOrigin(req) {
-  const configuredOrigin = process.env.APP_BASE_URL?.trim();
+  const renderOrigin = (process.env.RENDER_EXTERNAL_URL || '').trim();
+  const configuredOrigin = (process.env.APP_BASE_URL || '').trim();
   const requestOrigin = req.get('origin')?.trim();
-  const origin =
-    configuredOrigin ||
-    (requestOrigin && requestOrigin !== 'null' ? requestOrigin : '');
+  const candidates = [configuredOrigin, renderOrigin, requestOrigin]
+    .filter((origin) => origin && origin !== 'null');
 
-  if (!origin) {
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error(
-        'APP_BASE_URL must be configured before sending password reset links from production.'
-      );
+  for (const origin of candidates) {
+    let parsedOrigin;
+    try {
+      parsedOrigin = new URL(origin);
+    } catch {
+      continue;
     }
-    return 'http://localhost:8082';
+    if (!['http:', 'https:'].includes(parsedOrigin.protocol)) continue;
+    const isLoopback = ['localhost', '127.0.0.1', '[::1]'].includes(
+      parsedOrigin.hostname.toLowerCase()
+    );
+    if (renderOrigin && isLoopback) continue;
+    return parsedOrigin.origin;
   }
 
-  let parsedOrigin;
-  try {
-    parsedOrigin = new URL(origin);
-  } catch {
-    throw new Error('APP_BASE_URL or the request origin must be a valid HTTP URL.');
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'A public APP_BASE_URL or RENDER_EXTERNAL_URL is required for password reset links.'
+    );
   }
-  if (!['http:', 'https:'].includes(parsedOrigin.protocol)) {
-    throw new Error('APP_BASE_URL or the request origin must use HTTP or HTTPS.');
-  }
-
-  return parsedOrigin.origin;
+  return 'http://localhost:8082';
 }
 
 async function sendEmailJsTemplate({
@@ -169,11 +170,24 @@ async function sendEmailJsTemplate({
     body.accessToken = privateKey;
   }
 
-  const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  let response;
+  try {
+    response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      throw new Error('Email delivery timed out. Please try again.');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
     const message = await response.text().catch(() => '');
@@ -1623,6 +1637,9 @@ app.get('/api/health', (_req, res) => {
     message: 'Planner API server is running',
     hotelProvider: HOTEL_API_PROVIDER,
     hotelProviderConfigured: hotelApiEnabled(),
+    adminConfigured: Boolean(ADMIN_EMAIL && ADMIN_PASSWORD),
+    secondaryAdminConfigured: Boolean(SECONDARY_ADMIN_EMAIL && SECONDARY_ADMIN_PASSWORD),
+    travelLensConfigured: Boolean(OPENAI_API_KEY),
   });
 });
 
@@ -2029,12 +2046,14 @@ app.post('/api/auth/register', async (req, res) => {
   };
 
   try {
-    await sendRegistrationOtpEmail({
-      email: cleanEmail,
-      firstName: registrationChallenge.firstName,
-      otp,
-    });
-    await saveRegistrationChallenge(registrationChallenge);
+    await Promise.all([
+      sendRegistrationOtpEmail({
+        email: cleanEmail,
+        firstName: registrationChallenge.firstName,
+        otp,
+      }),
+      saveRegistrationChallenge(registrationChallenge),
+    ]);
     return res.json({ otpRequired: true, challengeToken, email: cleanEmail });
   } catch (error) {
     await removeRegistrationChallenge(cleanEmail);
@@ -2099,18 +2118,33 @@ app.post('/api/auth/register/verify-otp', async (req, res) => {
       .json({ errors: { otp: 'Enter the 6-digit code sent to your email.' } });
   }
 
-  if (await getUser(cleanEmail)) {
-    await removeRegistrationChallenge(cleanEmail);
-    return res
-      .status(409)
-      .json({
+  const existingUser = await getUser(cleanEmail);
+  if (existingUser && challenge.completedUserId !== existingUser.id) {
+    if (existingUser.passwordHash !== challenge.passwordHash) {
+      await removeRegistrationChallenge(cleanEmail);
+      return res.status(409).json({
         errors: {
           email: 'An account with this email already exists. Please sign in.',
         },
       });
+    }
+
+    await recordAuditEvent({
+      action: "account.registered",
+      actorEmail: cleanEmail,
+      targetEmail: cleanEmail,
+    }, `account-registered-${existingUser.id}`);
+    challenge.completedUserId = existingUser.id;
+    delete challenge.passwordHash;
+    challenge.expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    await saveRegistrationChallenge(challenge);
+    const accessToken = createUserSession(cleanEmail);
+    return res.status(201).json({
+      user: { ...publicUser(existingUser), accessToken },
+    });
   }
 
-  const user = {
+  const user = existingUser || {
     id: crypto.randomUUID(),
     firstName: challenge.firstName,
     lastName: challenge.lastName,
@@ -2120,13 +2154,16 @@ app.post('/api/auth/register/verify-otp', async (req, res) => {
     createdAt: new Date().toISOString(),
     dayPlan: [],
   };
-  await saveUser(user);
+  if (!existingUser) await saveUser(user);
   await recordAuditEvent({
     action: "account.registered",
     actorEmail: cleanEmail,
     targetEmail: cleanEmail,
-  });
-  await removeRegistrationChallenge(cleanEmail);
+  }, `account-registered-${user.id}`);
+  challenge.completedUserId = user.id;
+  delete challenge.passwordHash;
+  challenge.expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+  await saveRegistrationChallenge(challenge);
   const accessToken = createUserSession(cleanEmail);
   return res.status(201).json({ user: { ...publicUser(user), accessToken } });
 });
@@ -2551,7 +2588,9 @@ app.post('/api/travel-lens/identify', async (req, res) => {
     return res.status(400).json({ errors: { imageBase64: 'Provide a valid image smaller than 8 MB.' } });
   }
   if (!OPENAI_API_KEY) {
-    return res.status(503).json({ error: 'Landmark recognition is not configured. Set OPENAI_API_KEY on the backend.' });
+    return res.status(503).json({
+      error: 'Travel Lens is temporarily unavailable. Please try again later.',
+    });
   }
   const catalogue = (Array.isArray(req.body?.catalogue) ? req.body.catalogue : [])
     .slice(0, 80)

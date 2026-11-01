@@ -2,6 +2,11 @@
 // CRC - South African Attractions Catalogue
 // 45 attractions
 // Copy this entire file into your attractions.js
+import {
+  ACCOMMODATION_CATEGORY_IMAGES,
+  DEFAULT_ACCOMMODATION_IMAGE,
+  getAttractionFallbackImage,
+} from "../utils/imageDefaults";
 
 const makeAccommodation = ({
   id,
@@ -93,16 +98,6 @@ const map = (name, region, latitude, longitude) => ({
   directionsAvailable: true
 });
 
-const CATEGORY_IMAGES = {
-  Wildlife: "https://images.unsplash.com/photo-1516426122078-c23e76319801?w=1000&h=650&fit=crop&auto=format",
-  Mountains: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=1000&h=650&fit=crop&auto=format",
-  Coast: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1000&h=650&fit=crop&auto=format",
-  Beach: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1000&h=650&fit=crop&auto=format",
-  Nature: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=1000&h=650&fit=crop&auto=format",
-  City: "https://images.unsplash.com/photo-1518005020951-eccb494ad742?w=1000&h=650&fit=crop&auto=format"
-};
-
-const DEFAULT_ATTRACTION_IMAGE = "https://images.unsplash.com/photo-1539650116574-75c0c6d73f6e?w=1000&h=650&fit=crop&auto=format";
 const resolveImage = (image, fallback) =>
   typeof image === "string" && /^(https?:|data:)/.test(image) ? image : fallback;
 
@@ -110,7 +105,7 @@ const resolveAccommodationImage = (image) =>
   typeof image === "string" && /^(https?:|data:)/.test(image) ? image : "";
 
 const getAttractionImage = (attraction) =>
-  resolveImage(attraction.image, CATEGORY_IMAGES[attraction.category] || DEFAULT_ATTRACTION_IMAGE);
+  resolveImage(attraction.image, getAttractionFallbackImage(attraction));
 
 const attractions = [
 
@@ -3892,10 +3887,18 @@ const normalizedAttractions = attractions.map((attraction) => ({
   image: getAttractionImage(attraction),
   accommodations: (attraction.accommodations || []).map((accommodation) => ({
     ...accommodation,
-    image: resolveAccommodationImage(accommodation.image),
+    image:
+      resolveAccommodationImage(accommodation.image) ||
+      ACCOMMODATION_CATEGORY_IMAGES[attraction.category] ||
+      DEFAULT_ACCOMMODATION_IMAGE,
     details: {
       ...(accommodation.details || {}),
-      image: resolveAccommodationImage(accommodation.details?.image || accommodation.image),
+      image:
+        resolveAccommodationImage(
+          accommodation.details?.image || accommodation.image
+        ) ||
+        ACCOMMODATION_CATEGORY_IMAGES[attraction.category] ||
+        DEFAULT_ACCOMMODATION_IMAGE,
       amenities: accommodation.details?.amenities || accommodation.facilities || [],
       roomTypes: accommodation.details?.roomTypes || accommodation.roomTypes || [],
       reviews: accommodation.details?.reviews || [],
