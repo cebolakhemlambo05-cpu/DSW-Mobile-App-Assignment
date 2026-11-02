@@ -36,23 +36,33 @@ export default function LoginScreen({
   const [loading, setLoading] = useState(false);
   const [showPw, setShowPw] = useState(false);
   const [adminRoleHint, setAdminRoleHint] = useState(null);
+  const [roleCheckStatus, setRoleCheckStatus] = useState('idle');
   const passwordRef = useRef(null);
 
   useEffect(() => {
     const normalizedEmail = email.trim().toLowerCase();
     if (!/\S+@\S+\.\S+/.test(normalizedEmail)) {
       setAdminRoleHint(null);
+      setRoleCheckStatus('idle');
       return undefined;
     }
     setAdminRoleHint(null);
+    setRoleCheckStatus('checking');
     let active = true;
-    const timer = setTimeout(async () => {
-      const role = await getAdminRoleHint(normalizedEmail);
-      if (active) setAdminRoleHint(role);
-    }, 250);
+    getAdminRoleHint(normalizedEmail)
+      .then((role) => {
+        if (!active) return;
+        setAdminRoleHint(role);
+        setRoleCheckStatus('ready');
+      })
+      .catch((error) => {
+        if (!active) return;
+        console.warn('Could not detect the sign-in account type:', error);
+        setAdminRoleHint(null);
+        setRoleCheckStatus('unavailable');
+      });
     return () => {
       active = false;
-      clearTimeout(timer);
     };
   }, [email]);
 
@@ -262,13 +272,23 @@ export default function LoginScreen({
                 ) : (
                   <Text style={styles.submitText}>
                     {adminRoleHint === 'superuser'
-                      ? 'Sign in as Admin'
+                      ? 'Sign in as Superuser'
                       : adminRoleHint === 'secondary-admin'
                         ? 'Sign in as Secondary Admin'
-                        : 'Sign in'}
+                        : roleCheckStatus === 'checking'
+                          ? 'Checking account...'
+                          : roleCheckStatus === 'ready'
+                            ? 'Sign in as User'
+                            : 'Sign in'}
                   </Text>
                 )}
               </Pressable>
+              {roleCheckStatus === 'unavailable' && (
+                <Text style={styles.roleHint}>
+                  Account type could not be checked. Sign-in will still verify
+                  your account with the server.
+                </Text>
+              )}
 
               <View style={styles.dividerRow}>
                 <View style={styles.dividerLine} />
@@ -361,6 +381,13 @@ const styles = StyleSheet.create({
   showBtn: { position: "absolute", right: 14 },
   showBtnText: { fontSize: 12, fontFamily: fonts.bodySemiBold, color: colors.sky },
   errorText: { fontSize: 11, color: colors.terra },
+  roleHint: {
+    fontSize: 11,
+    lineHeight: 16,
+    color: colors.charcoal,
+    opacity: 0.65,
+    textAlign: "center",
+  },
   formError: { fontSize: 12, lineHeight: 17, color: colors.terra, textAlign: "center", backgroundColor: "rgba(201,123,74,0.1)", borderRadius: 10, padding: 10 },
   otpMessage: { fontSize: 13, lineHeight: 19, color: colors.charcoal, opacity: 0.68, textAlign: "center" },
   forgotWrap: { alignItems: "flex-end" },

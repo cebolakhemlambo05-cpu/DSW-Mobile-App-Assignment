@@ -319,15 +319,27 @@ export async function loginUser(payload) {
 }
 
 export async function getAdminRoleHint(email) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 6000);
   try {
     const response = await fetch(
-      `${API_BASE}/auth/admin-role?email=${encodeURIComponent(String(email || '').trim().toLowerCase())}`
+      `${API_BASE}/auth/admin-role?email=${encodeURIComponent(String(email || '').trim().toLowerCase())}`,
+      { signal: controller.signal, cache: 'no-store' }
     );
-    if (!response.ok) return null;
+    if (!response.ok) {
+      throw new Error(`Could not check account type (HTTP ${response.status}).`);
+    }
     const data = await response.json();
-    return data.role || null;
-  } catch {
-    return null;
+    if (
+      data.role !== null &&
+      data.role !== 'superuser' &&
+      data.role !== 'secondary-admin'
+    ) {
+      throw new Error('The account type response was invalid.');
+    }
+    return data.role;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 

@@ -2163,13 +2163,19 @@ app.post('/api/auth/register/verify-otp', async (req, res) => {
 
 app.get('/api/auth/admin-role', (req, res) => {
   const email = String(req.query.email || '').trim().toLowerCase();
-  if (email && ADMIN_EMAIL && ADMIN_PASSWORD && email === ADMIN_EMAIL) {
-    return res.json({ role: 'superuser' });
+  if (email && ADMIN_EMAIL && email === ADMIN_EMAIL) {
+    return res.json({
+      role: 'superuser',
+      configured: Boolean(ADMIN_PASSWORD),
+    });
   }
-  if (email && SECONDARY_ADMIN_EMAIL && SECONDARY_ADMIN_PASSWORD && email === SECONDARY_ADMIN_EMAIL) {
-    return res.json({ role: 'secondary-admin' });
+  if (email && SECONDARY_ADMIN_EMAIL && email === SECONDARY_ADMIN_EMAIL) {
+    return res.json({
+      role: 'secondary-admin',
+      configured: Boolean(SECONDARY_ADMIN_PASSWORD),
+    });
   }
-  return res.json({ role: null });
+  return res.json({ role: null, configured: false });
 });
 
 app.post("/api/auth/login", async (req, res) => {
