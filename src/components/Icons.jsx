@@ -52,6 +52,10 @@ exports.IconClock = IconClock;
 exports.IconShield = IconShield;
 exports.IconClose = IconClose;
 exports.IconHome = IconHome;
+exports.IconDashboard = IconDashboard;
+exports.IconUser = IconUser;
+exports.IconActivity = IconActivity;
+exports.IconSettings = IconSettings;
 const react_1 = __importDefault(require("react"));
 const react_native_svg_1 = __importStar(require("react-native-svg"));
 function IconSearch({ color = "currentColor", size = 18 }) {
@@ -152,5 +156,30 @@ function IconHome({ color = "#FAF6EF", size = 12 }) {
     return (<react_native_svg_1.default width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
       <react_native_svg_1.Path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
       <react_native_svg_1.Polyline points="9 22 9 12 15 12 15 22"/>
+    </react_native_svg_1.default>);
+}
+function IconDashboard({ color = "currentColor", size = 18 }) {
+    return (<react_native_svg_1.default width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <react_native_svg_1.Rect x="3" y="3" width="8" height="8" rx="1.5"/>
+      <react_native_svg_1.Rect x="13" y="3" width="8" height="5" rx="1.5"/>
+      <react_native_svg_1.Rect x="13" y="10" width="8" height="11" rx="1.5"/>
+      <react_native_svg_1.Rect x="3" y="13" width="8" height="8" rx="1.5"/>
+    </react_native_svg_1.default>);
+}
+function IconUser({ color = "currentColor", size = 18 }) {
+    return (<react_native_svg_1.default width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <react_native_svg_1.Circle cx="12" cy="8" r="4"/>
+      <react_native_svg_1.Path d="M5 21v-2a7 7 0 0 1 14 0v2"/>
+    </react_native_svg_1.default>);
+}
+function IconActivity({ color = "currentColor", size = 18 }) {
+    return (<react_native_svg_1.default width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <react_native_svg_1.Path d="M3 12h4l3-8 4 16 3-8h4"/>
+    </react_native_svg_1.default>);
+}
+function IconSettings({ color = "currentColor", size = 18 }) {
+    return (<react_native_svg_1.default width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <react_native_svg_1.Circle cx="12" cy="12" r="3"/>
+      <react_native_svg_1.Path d="m19.4 15 .1.1 1.4 1.1-1.4 2.4-1.7-.7a8 8 0 0 1-1.5.9l-.3 1.8h-2.8l-.3-1.8a8 8 0 0 1-1.5-.9l-1.7.7-1.4-2.4 1.4-1.1a7 7 0 0 1 0-1.8l-1.4-1.1 1.4-2.4 1.7.7a8 8 0 0 1 1.5-.9l.3-1.8h2.8l.3 1.8a8 8 0 0 1 1.5.9l1.7-.7 1.4 2.4-1.4 1.1a7 7 0 0 1 0 1.8Z"/>
     </react_native_svg_1.default>);
 }

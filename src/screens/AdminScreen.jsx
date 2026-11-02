@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, fonts } from "../theme/theme";
-import { IconBack } from "../components/Icons";
+import { IconActivity, IconBack, IconDashboard, IconSettings, IconUser } from "../components/Icons";
 import {
   deleteAdminUser,
   fetchAdminAuditEvents,
@@ -239,10 +239,11 @@ export default function AdminScreen({ adminEmail, adminToken, adminRole = "super
     }
   };
 
-  const sidebarItem = (section, label, icon) => (
+  const sidebarItem = (section, label, compactLabel, Icon) => (
     <Pressable
       key={section}
       accessibilityRole="button"
+      accessibilityLabel={label}
       accessibilityState={{ selected: activeSection === section }}
       onPress={() => setActiveSection(section)}
       style={[
@@ -251,31 +252,26 @@ export default function AdminScreen({ adminEmail, adminToken, adminRole = "super
         compactSidebar && styles.navItemCompact,
       ]}
     >
+      <Icon
+        color={activeSection === section ? colors.ivory : "rgba(232,220,196,0.7)"}
+        size={18}
+      />
       <Text
         style={[
-          styles.navIcon,
+          styles.navLabel,
           activeSection === section && styles.navTextActive,
+          compactSidebar && styles.navLabelCompact,
         ]}
       >
-        {icon}
+        {compactSidebar ? compactLabel : label}
       </Text>
-      {!compactSidebar && (
-        <Text
-          style={[
-            styles.navLabel,
-            activeSection === section && styles.navTextActive,
-          ]}
-        >
-          {label}
-        </Text>
-      )}
     </Pressable>
   );
 
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, compactSidebar && styles.screenCompact]}>
       <SafeAreaView
-        edges={["top", "bottom"]}
+        edges={compactSidebar ? ["top"] : ["top", "bottom"]}
         style={[
           styles.sidebar,
           compactSidebar ? styles.sidebarCompact : styles.sidebarWide,
@@ -285,7 +281,7 @@ export default function AdminScreen({ adminEmail, adminToken, adminRole = "super
           accessibilityRole="button"
           accessibilityLabel="Exit admin dashboard"
           onPress={onBack}
-          style={styles.back}
+          style={[styles.back, compactSidebar && styles.sidebarCompactBack]}
         >
           <IconBack color={colors.sand} />
         </Pressable>
@@ -295,22 +291,20 @@ export default function AdminScreen({ adminEmail, adminToken, adminRole = "super
             <Text style={styles.sidebarCaption}>{adminRole === "superuser" ? "SUPERUSER CONSOLE" : "SECONDARY ADMIN"}</Text>
           </>
         )}
-        <View style={styles.navigation}>
-          {sidebarItem("dashboard", "Dashboard", "D")}
-          {sidebarItem("users", "Configure users", "U")}
-          {sidebarItem("audit", "Audit log", "L")}
-          {sidebarItem("system", "System status", "S")}
+        <View style={[styles.navigation, compactSidebar && styles.navigationCompact]}>
+          {sidebarItem("dashboard", "Dashboard", "Home", IconDashboard)}
+          {sidebarItem("users", "Users", "Users", IconUser)}
+          {sidebarItem("audit", "Audit log", "Audit", IconActivity)}
+          {sidebarItem("system", "System status", "Status", IconSettings)}
         </View>
-        <View style={styles.sidebarFooter}>
-          {!compactSidebar && (
-            <>
-              <Text style={styles.sidebarCaption}>SIGNED IN AS</Text>
-              <Text numberOfLines={2} style={styles.adminEmail}>
-                {adminEmail}
-              </Text>
-            </>
-          )}
-        </View>
+        {!compactSidebar && (
+          <View style={styles.sidebarFooter}>
+            <Text style={styles.sidebarCaption}>SIGNED IN AS</Text>
+            <Text numberOfLines={2} style={styles.adminEmail}>
+              {adminEmail}
+            </Text>
+          </View>
+        )}
       </SafeAreaView>
 
       <View style={styles.main}>
@@ -503,13 +497,11 @@ export default function AdminScreen({ adminEmail, adminToken, adminRole = "super
                 .map((user) => (
                   <View key={user.email} style={styles.userRow}>
                     <View style={styles.userAvatar}>
-                      <Text style={styles.userAvatarText}>
-                        {(user.firstName || user.email || "?").slice(0, 1).toUpperCase()}
-                      </Text>
+                      <IconUser color={colors.savanna} size={18} />
                     </View>
                     <View style={styles.activityInfo}>
                       <Text style={styles.activityName}>
-                        {user.firstName} {user.lastName}
+                        {[user.firstName, user.lastName].filter(Boolean).join(" ") || "Planner user"}
                       </Text>
                       <Text style={styles.activityMeta}>
                         {user.email} · {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : "Join date unavailable"}
@@ -651,7 +643,7 @@ export default function AdminScreen({ adminEmail, adminToken, adminRole = "super
                   <View style={styles.userRow}>
                     <View style={styles.activityInfo}>
                       <Text style={styles.activityName}>
-                        {user.firstName} {user.lastName}
+                        {[user.firstName, user.lastName].filter(Boolean).join(" ") || "Planner user"}
                       </Text>
                       <Text style={styles.activityMeta}>{user.email}</Text>
                     </View>
@@ -783,13 +775,14 @@ function StatusRow({ label, value }) {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, flexDirection: "row", backgroundColor: colors.sand },
+  screenCompact: { flexDirection: "column" },
   sidebar: {
     backgroundColor: colors.savanna,
     paddingHorizontal: 12,
     paddingBottom: 16,
   },
   sidebarWide: { width: 230 },
-  sidebarCompact: { width: 68, alignItems: "center" },
+  sidebarCompact: { width: "100%", minHeight: 62, flexDirection: "row", alignItems: "center", paddingHorizontal: 8, paddingVertical: 6, paddingBottom: 6 },
   back: {
     width: 38,
     height: 38,
@@ -797,6 +790,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 20,
   },
+  sidebarCompactBack: { marginBottom: 0 },
   brand: { color: colors.ivory, fontFamily: fonts.display, fontSize: 16 },
   sidebarCaption: {
     color: "rgba(232,220,196,0.55)",
@@ -806,6 +800,7 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   navigation: { gap: 8, marginTop: 34, width: "100%" },
+  navigationCompact: { flex: 1, flexDirection: "row", gap: 2, marginTop: 0, width: undefined },
   navItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -814,16 +809,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 12,
   },
-  navItemCompact: { width: 46, justifyContent: "center", paddingHorizontal: 0 },
+  navItemCompact: { flex: 1, minHeight: 48, flexDirection: "column", justifyContent: "center", gap: 3, paddingHorizontal: 2, paddingVertical: 3 },
   navItemActive: { backgroundColor: "rgba(255,255,255,0.14)" },
-  navIcon: {
-    color: "rgba(232,220,196,0.7)",
-    fontFamily: fonts.bodyBold,
-    fontSize: 14,
-    width: 18,
-    textAlign: "center",
-  },
   navLabel: { color: "rgba(232,220,196,0.75)", fontFamily: fonts.bodySemiBold, fontSize: 12 },
+  navLabelCompact: { fontSize: 9, lineHeight: 12, textAlign: "center" },
   navTextActive: { color: colors.ivory },
   sidebarFooter: { flex: 1, justifyContent: "flex-end" },
   adminEmail: { color: colors.ivory, fontSize: 10, marginTop: 6, opacity: 0.8 },

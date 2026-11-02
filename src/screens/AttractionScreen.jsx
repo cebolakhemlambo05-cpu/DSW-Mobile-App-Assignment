@@ -256,7 +256,15 @@ function AttractionScreen({ attraction, onBack, onAddToPlan, onGoToPlan, existin
         attractionId: attraction.id,
         attractionName: attraction.name,
         accommodation: selectedAccomData
-            ? { id: selectedAccomData.id, name: selectedAccomData.name, price: selectedAccomData.pricePerNight, currency: selectedAccomData.currency || "ZAR" }
+            ? {
+                id: selectedAccomData.id,
+                name: selectedAccomData.name,
+                price: selectedAccomData.pricePerNight,
+                currency: selectedAccomData.currency || "ZAR",
+                amenities: Array.isArray(selectedAccomData.details?.amenities)
+                    ? selectedAccomData.details.amenities.slice(0, 20)
+                    : [],
+            }
             : undefined,
         activities: selectedActivityData.map((a) => ({ id: a.id, name: a.name, price: a.pricePerPerson })),
         groupSize: adults,

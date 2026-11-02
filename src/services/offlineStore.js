@@ -166,6 +166,10 @@ export async function saveOfflineVerifier(email, password) {
   }));
 }
 
+export async function clearOfflineVerifier(email) {
+  await deleteVerifier(verifierKey(email), email);
+}
+
 export async function verifyOfflinePassword(email, password) {
   const stored = await readVerifier(verifierKey(email), email);
   if (!stored) return false;

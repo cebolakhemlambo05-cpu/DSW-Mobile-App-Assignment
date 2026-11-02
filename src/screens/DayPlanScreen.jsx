@@ -44,9 +44,57 @@ const format_1 = require("../utils/format");
 const Icons_1 = require("../components/Icons");
 const PhotoImage_1 = require("../components/PhotoImage");
 const imageDefaults_1 = require("../utils/imageDefaults");
-function DayPlanScreen({ plan, onBack, onRemove, onClearAll, onSelectAttraction, onGroupSizeChange, }) {
+const featureService_1 = require("../services/featureService");
+const tripTools_1 = require("../utils/tripTools");
+function DayPlanScreen({ plan, user, onBack, onRemove, onClearAll, onSelectAttraction, onGroupSizeChange, onViewExpenses, onViewPacking, onSessionExpired, }) {
     const initialGuests = plan.find((entry) => Number.isInteger(entry.groupSize || entry.booking?.adults))?.groupSize || plan.find((entry) => Number.isInteger(entry.booking?.adults))?.booking.adults || 1;
     const [groupSize, setGroupSize] = (0, react_1.useState)(initialGuests);
+    const [packingLists, setPackingLists] = (0, react_1.useState)({});
+    const [expenseGroups, setExpenseGroups] = (0, react_1.useState)([]);
+    const [tripToolsLoading, setTripToolsLoading] = (0, react_1.useState)(true);
+    const [tripToolsError, setTripToolsError] = (0, react_1.useState)("");
+    const [tripToolsReloadKey, setTripToolsReloadKey] = (0, react_1.useState)(0);
+    const packingPlanKey = (0, tripTools_1.getPackingPlanKey)(plan);
+    (0, react_1.useEffect)(() => {
+        let active = true;
+        if (!user?.email) {
+            setTripToolsLoading(false);
+            return () => { active = false; };
+        }
+        setTripToolsLoading(true);
+        setTripToolsError("");
+        Promise.all([
+            (0, featureService_1.fetchPackingLists)(user.email),
+            (0, featureService_1.fetchExpenseGroups)(user.email),
+        ]).then(([packingData, expenseData]) => {
+            if (!active)
+                return;
+            setPackingLists(packingData.lists && typeof packingData.lists === "object" ? packingData.lists : {});
+            setExpenseGroups(Array.isArray(expenseData.groups) ? expenseData.groups : []);
+        }).catch((error) => {
+            if (!active)
+                return;
+            if (error.code === "SESSION_EXPIRED")
+                onSessionExpired?.();
+            setTripToolsError(error.message || "Trip preparation details could not be loaded.");
+        }).finally(() => {
+            if (active)
+                setTripToolsLoading(false);
+        });
+        return () => { active = false; };
+    }, [user?.email, packingPlanKey, tripToolsReloadKey, onSessionExpired]);
+    const packingSummary = packingLists[packingPlanKey] || {};
+    const packedItems = Array.isArray(packingSummary.packed) ? packingSummary.packed : [];
+    const checklistItems = Array.isArray(packingSummary.checklistItems) ? packingSummary.checklistItems : [];
+    const packingItemTotal = Math.max(checklistItems.length, packedItems.length);
+    const linkedExpenseGroups = expenseGroups.filter((group) => {
+        if (group.tripPlanKey === packingPlanKey)
+            return true;
+        const destinations = Array.isArray(group.destinations) ? group.destinations : [];
+        return destinations.length > 0 && destinations.every((destination) => plan.some((entry) =>
+            String(entry.attractionName || "").toLowerCase() === String(destination.attractionName || "").toLowerCase()
+        ));
+    });
     const totalAccom = plan.reduce((sum, entry) => {
         const savedTotal = entry.booking?.accommodationTotal ?? entry.accommodationTotal;
         if (savedTotal != null && Number.isFinite(Number(savedTotal))) return sum + Number(savedTotal);
@@ -103,6 +151,50 @@ function DayPlanScreen({ plan, onBack, onRemove, onClearAll, onSelectAttraction,
                   </react_native_1.Pressable>
                 </react_native_1.View>
               </react_native_1.View>
+              <react_native_1.View style={styles.tripTools}>
+                <react_native_1.Text style={styles.tripToolsTitle}>Plan your trip together</react_native_1.Text>
+                <react_native_1.Text style={styles.tripToolsSubtitle}>Use your saved destinations and stays to organise shared costs and packing.</react_native_1.Text>
+                <react_native_1.View style={styles.tripToolsButtons}>
+                  <react_native_1.Pressable onPress={onViewExpenses} style={styles.tripToolButton} accessibilityRole="button">
+                    <react_native_1.Text style={styles.tripToolText}>Split trip expenses</react_native_1.Text>
+                  </react_native_1.Pressable>
+                  <react_native_1.Pressable onPress={onViewPacking} style={[styles.tripToolButton, styles.packingToolButton]} accessibilityRole="button">
+                    <react_native_1.Text style={styles.tripToolText}>Prepare packing list</react_native_1.Text>
+                  </react_native_1.Pressable>
+                </react_native_1.View>
+              </react_native_1.View>
+            </react_native_1.View>
+
+            <react_native_1.View style={styles.prepSummary}>
+              <react_native_1.Text style={styles.tripToolsTitle}>Your trip prep</react_native_1.Text>
+              {!!tripToolsError && (<react_native_1.View style={styles.summaryError}>
+                  <react_native_1.Text style={styles.groupSubtitle}>{tripToolsError}</react_native_1.Text>
+                  <react_native_1.Pressable onPress={() => setTripToolsReloadKey((key) => key + 1)}>
+                    <react_native_1.Text style={styles.summaryAction}>Retry</react_native_1.Text>
+                  </react_native_1.Pressable>
+                </react_native_1.View>)}
+              {tripToolsLoading ? (<react_native_1.Text style={styles.groupSubtitle}>Loading packing progress and shared costs…</react_native_1.Text>) : (<>
+                  <react_native_1.View style={styles.summarySection}>
+                    <react_native_1.Text style={styles.summaryTitle}>Packing · {packedItems.length}/{packingItemTotal} packed</react_native_1.Text>
+                    <react_native_1.Text style={styles.groupSubtitle}>
+                      {packingSummary.completed ? "Trip packing complete - you are ready to go." : packedItems.length ? "Your checked items:" : "No packing items checked yet. Build your trip-specific list."}
+                    </react_native_1.Text>
+                    {!!packedItems.length && <react_native_1.Text style={styles.summaryItems}>{packedItems.join(" · ")}</react_native_1.Text>}
+                  </react_native_1.View>
+                  <react_native_1.View style={styles.summarySection}>
+                    <react_native_1.Text style={styles.summaryTitle}>Shared expenses</react_native_1.Text>
+                    {linkedExpenseGroups.length ? linkedExpenseGroups.map((group) => {
+                      const spend = (0, tripTools_1.getGroupSpend)(group);
+                      return (<react_native_1.View key={group.id} style={styles.expenseSummaryRow}>
+                          <react_native_1.View style={{ flex: 1 }}>
+                            <react_native_1.Text style={styles.groupSubtitle}>{group.name}</react_native_1.Text>
+                            <react_native_1.Text style={styles.groupSubtitle}>My share { (0, format_1.fmt)(spend.shares.Me || 0)} · average { (0, format_1.fmt)(spend.total / spend.memberCount)} per person</react_native_1.Text>
+                          </react_native_1.View>
+                          <react_native_1.Text style={styles.summaryAmount}>{(0, format_1.fmt)(spend.total)}</react_native_1.Text>
+                        </react_native_1.View>);
+                    }) : (<react_native_1.Text style={styles.groupSubtitle}>No shared expenses logged for this trip yet. Add members and expenses to see each person's share.</react_native_1.Text>)}
+                  </react_native_1.View>
+                </>)}
             </react_native_1.View>
 
             <react_native_1.View style={{ gap: 12 }}>
@@ -147,7 +239,7 @@ function DayPlanScreen({ plan, onBack, onRemove, onClearAll, onSelectAttraction,
                           <react_native_1.Text style={styles.lineValue}>Trip total due: {(0, format_1.fmt)(entry.booking.amount, entry.booking.currency)}</react_native_1.Text>
                           {Math.max(0, (entry.groupSize || entry.booking.adults) - (entry.booking.roomQuantity || 1) * (entry.booking.roomSharing || 2)) > 0 && <react_native_1.Text style={styles.lineUnit}>{Math.max(0, (entry.groupSize || entry.booking.adults) - (entry.booking.roomQuantity || 1) * (entry.booking.roomSharing || 2))} guest{Math.max(0, (entry.groupSize || entry.booking.adults) - (entry.booking.roomQuantity || 1) * (entry.booking.roomSharing || 2)) === 1 ? "" : "s"} still need a room.</react_native_1.Text>}
                           <react_native_1.Text selectable style={[styles.lineValue, { marginTop: 4 }]}>Booking ref: {entry.booking.bookingReference}</react_native_1.Text>
-                          <react_native_1.Text selectable style={[styles.lineValue, { marginTop: 2 }]}>Payment ref: {entry.booking.paymentReference}</react_native_1.Text>
+                          <react_native_1.Text selectable style={[styles.lineValue, { marginTop: 2 }]}>PAY@ payment reference: {entry.booking.paymentReference}</react_native_1.Text>
                           <react_native_1.Text style={styles.lineUnit}>Payment method: {entry.booking.paymentMethod}</react_native_1.Text>
                           <react_native_1.Text style={styles.lineUnit}>{entry.booking.emailStatus === "sent" ? "Reservation request receipt sent by email." : `Email receipt could not be sent: ${entry.booking.emailError || "check email settings"}`}</react_native_1.Text>
                           <react_native_1.Text style={styles.lineUnit}>Hotelbeds reservation confirmation is still pending.</react_native_1.Text>
@@ -216,6 +308,21 @@ const styles = react_native_1.StyleSheet.create({
     groupInfo: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
     groupTitle: { fontSize: 12, fontFamily: theme_1.fonts.bodySemiBold, letterSpacing: 0.3, textTransform: "uppercase", color: theme_1.colors.sky },
     groupSubtitle: { flexShrink: 1, fontSize: 12, lineHeight: 18, color: "rgba(45,42,36,0.68)", marginTop: 4 },
+    tripTools: { marginTop: 14, paddingTop: 13, borderTopWidth: 1, borderTopColor: "rgba(62,50,38,0.08)", gap: 6 },
+    tripToolsTitle: { fontSize: 13, fontFamily: theme_1.fonts.bodySemiBold, color: theme_1.colors.charcoal },
+    tripToolsSubtitle: { fontSize: 11, lineHeight: 16, color: "rgba(45,42,36,0.68)" },
+    tripToolsButtons: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 4 },
+    tripToolButton: { minHeight: 42, paddingHorizontal: 13, paddingVertical: 10, borderRadius: 12, backgroundColor: theme_1.colors.savanna, justifyContent: "center" },
+    packingToolButton: { backgroundColor: theme_1.colors.sky },
+    tripToolText: { color: theme_1.colors.ivory, fontSize: 12, fontFamily: theme_1.fonts.bodySemiBold },
+    prepSummary: { padding: 16, borderRadius: 16, backgroundColor: theme_1.colors.ivory, gap: 12 },
+    summarySection: { gap: 5, paddingTop: 10, borderTopWidth: 1, borderTopColor: "rgba(62,50,38,0.08)" },
+    summaryTitle: { fontSize: 12, fontFamily: theme_1.fonts.bodySemiBold, color: theme_1.colors.charcoal },
+    summaryItems: { fontSize: 12, lineHeight: 19, color: theme_1.colors.charcoal, opacity: 0.8 },
+    summaryAmount: { fontSize: 13, fontFamily: theme_1.fonts.bodyBold, color: theme_1.colors.savanna },
+    expenseSummaryRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 5 },
+    summaryError: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, padding: 10, borderRadius: 10, backgroundColor: "rgba(201,123,74,0.1)" },
+    summaryAction: { color: theme_1.colors.sky, fontFamily: theme_1.fonts.bodyBold, fontSize: 12 },
     stepperRow: { flexDirection: "row", alignItems: "center", gap: 10 },
     stepperBtn: { width: 32, height: 32, borderRadius: 10, backgroundColor: theme_1.colors.sand, alignItems: "center", justifyContent: "center" },
     stepperBtnText: { fontSize: 18, fontFamily: theme_1.fonts.bodyBold, color: theme_1.colors.charcoal },

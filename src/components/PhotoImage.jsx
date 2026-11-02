@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Image } from "react-native";
+import { Image, StyleSheet, View } from "react-native";
 import { DEFAULT_ACCOMMODATION_IMAGE } from "../utils/imageDefaults";
 
 export default function PhotoImage({
@@ -15,14 +15,28 @@ export default function PhotoImage({
   }, [uri, fallbackUri]);
 
   const imageUri = failed ? fallbackUri : uri || fallbackUri;
+  const imageSource = typeof imageUri === "number" ? imageUri : { uri: imageUri };
+  const fallbackSource =
+    typeof fallbackUri === "number" ? fallbackUri : { uri: fallbackUri };
+  const { resizeMode = "cover", ...restImageProps } = imageProps;
+
   return (
-    <Image
-      {...imageProps}
-      source={{ uri: imageUri }}
-      style={style}
-      onError={() => {
-        if (!failed && imageUri !== fallbackUri) setFailed(true);
-      }}
-    />
+    <View style={style}>
+      <Image
+        source={fallbackSource}
+        resizeMode={resizeMode}
+        style={StyleSheet.absoluteFill}
+        accessible={false}
+      />
+      {imageUri !== fallbackUri && (
+        <Image
+          {...restImageProps}
+          source={imageSource}
+          resizeMode={resizeMode}
+          style={StyleSheet.absoluteFill}
+          onError={() => setFailed(true)}
+        />
+      )}
+    </View>
   );
 }

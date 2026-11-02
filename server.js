@@ -53,7 +53,6 @@ const HOTEL_API_BASE_URL = process.env.HOTEL_API_BASE_URL || '';
 const HOTEL_API_TOKEN_URL = process.env.HOTEL_API_TOKEN_URL || '';
 const HOTEL_API_HOST = process.env.HOTEL_API_HOST || '';
 const EMAILJS_SERVICE_ID = process.env.EMAILJS_SERVICE_ID || '';
-const EMAILJS_TEMPLATE_ID = process.env.EMAILJS_TEMPLATE_ID || '';
 const EMAILJS_OTP_TEMPLATE_ID = process.env.EMAILJS_OTP_TEMPLATE_ID || '';
 const EMAILJS_BOOKING_TEMPLATE_ID = process.env.EMAILJS_BOOKING_TEMPLATE_ID || '';
 const EMAILJS_PUBLIC_KEY = process.env.EMAILJS_PUBLIC_KEY || '';
@@ -116,36 +115,6 @@ function isAdminEmail(email) {
   return normalized === ADMIN_EMAIL || normalized === SECONDARY_ADMIN_EMAIL;
 }
 
-function getRequestOrigin(req) {
-  const renderOrigin = (process.env.RENDER_EXTERNAL_URL || '').trim();
-  const configuredOrigin = (process.env.APP_BASE_URL || '').trim();
-  const requestOrigin = req.get('origin')?.trim();
-  const candidates = [configuredOrigin, renderOrigin, requestOrigin]
-    .filter((origin) => origin && origin !== 'null');
-
-  for (const origin of candidates) {
-    let parsedOrigin;
-    try {
-      parsedOrigin = new URL(origin);
-    } catch {
-      continue;
-    }
-    if (!['http:', 'https:'].includes(parsedOrigin.protocol)) continue;
-    const isLoopback = ['localhost', '127.0.0.1', '[::1]'].includes(
-      parsedOrigin.hostname.toLowerCase()
-    );
-    if (renderOrigin && isLoopback) continue;
-    return parsedOrigin.origin;
-  }
-
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error(
-      'A public APP_BASE_URL or RENDER_EXTERNAL_URL is required for password reset links.'
-    );
-  }
-  return 'http://localhost:8082';
-}
-
 async function sendEmailJsTemplate({
   templateId,
   templateParams,
@@ -197,22 +166,6 @@ async function sendEmailJsTemplate({
   }
 }
 
-async function sendPasswordResetEmail({ user, resetLink }) {
-  await sendEmailJsTemplate({
-    templateId: EMAILJS_TEMPLATE_ID,
-    templateParams: {
-      to_email: user.email,
-      user_email: user.email,
-      email: user.email,
-      to_name: user.firstName,
-      name: user.firstName,
-      reset_link: resetLink,
-      link: resetLink,
-      app_name: 'ALL-IN-ONE-PLANNER',
-    },
-  });
-}
-
 async function sendLoginOtpEmail({ user, otp }) {
   const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
   const timeString = expiresAt.toLocaleTimeString('en-ZA', {
@@ -233,6 +186,33 @@ async function sendLoginOtpEmail({ user, otp }) {
       otp_code: otp,
       code: otp,
       time: timeString,
+      app_name: 'ALL-IN-ONE-PLANNER',
+    },
+  });
+}
+
+async function sendPasswordResetOtpEmail({ user, otp }) {
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+  const timeString = expiresAt.toLocaleTimeString('en-ZA', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+
+  await sendEmailJsTemplate({
+    templateId: EMAILJS_OTP_TEMPLATE_ID,
+    templateParams: {
+      email: user.email,
+      to_email: user.email,
+      user_email: user.email,
+      to_name: user.firstName,
+      name: user.firstName,
+      passcode: otp,
+      otp_code: otp,
+      code: otp,
+      time: timeString,
+      purpose: 'password reset',
+      action: 'Reset your password',
       app_name: 'ALL-IN-ONE-PLANNER',
     },
   });
@@ -2549,7 +2529,7 @@ function getFeatureAccount(req, res) {
 
 for (const [route, field, fallback, typeName] of [
   ['expense-groups', 'expenseGroups', [], 'array'],
-  ['packing-lists', 'packingLists', [], 'array'],
+  ['packing-lists', 'packingLists', {}, 'object'],
   ['eco-profile', 'ecoProfile', {}, 'object'],
 ]) {
   app.get(`/api/users/:email/${route}`, async (req, res) => {
@@ -2557,7 +2537,12 @@ for (const [route, field, fallback, typeName] of [
     if (!session) return;
     const user = await getUser(session.email);
     if (!user) return res.status(404).json({ errors: { email: 'No account found.' } });
-    return res.json({ [field === 'expenseGroups' ? 'groups' : field === 'packingLists' ? 'lists' : 'profile']: user[field] ?? fallback });
+    const storedValue = user[field];
+    const validValue = typeName === 'array'
+      ? Array.isArray(storedValue)
+      : storedValue && typeof storedValue === 'object' && !Array.isArray(storedValue);
+    const responseKey = field === 'expenseGroups' ? 'groups' : field === 'packingLists' ? 'lists' : 'profile';
+    return res.json({ [responseKey]: validValue ? storedValue : fallback });
   });
   app.put(`/api/users/:email/${route}`, async (req, res) => {
     const session = getFeatureAccount(req, res);
@@ -2752,7 +2737,7 @@ app.delete('/api/admin/users/:email', async (req, res) => {
   return res.json({ ok: true });
 });
 
-app.post("/api/auth/request-password-reset", async (req, res) => {
+app.post("/api/auth/request-password-reset-otp", async (req, res) => {
   const cleanEmail = String(req.body?.email || "").trim().toLowerCase();
   const user = await getUser(cleanEmail);
 
@@ -2760,39 +2745,65 @@ app.post("/api/auth/request-password-reset", async (req, res) => {
     return res.status(404).json({ errors: { email: "No account found with this email address." } });
   }
 
-  const token = crypto.randomBytes(32).toString("hex");
-  user.resetPasswordTokenHash = hashToken(token);
-  user.resetPasswordExpiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+  const otp = String(crypto.randomInt(100000, 1000000));
+  const challengeToken = crypto.randomBytes(24).toString("hex");
+  user.resetPasswordOtpHash = hashToken(`${challengeToken}:${otp}`);
+  user.resetPasswordOtpChallengeHash = hashToken(challengeToken);
+  user.resetPasswordOtpExpiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+  user.resetPasswordOtpAttempts = 0;
   await saveUser(user);
 
   try {
-    const resetLink = `${getRequestOrigin(req)}/?resetToken=${encodeURIComponent(token)}&email=${encodeURIComponent(cleanEmail)}`;
-    await sendPasswordResetEmail({ user, resetLink });
-    return res.json({ ok: true });
+    await sendPasswordResetOtpEmail({ user, otp });
+    return res.json({ ok: true, challengeToken, email: cleanEmail });
   } catch (error) {
-    user.resetPasswordTokenHash = undefined;
-    user.resetPasswordExpiresAt = undefined;
+    user.resetPasswordOtpHash = undefined;
+    user.resetPasswordOtpChallengeHash = undefined;
+    user.resetPasswordOtpExpiresAt = undefined;
+    user.resetPasswordOtpAttempts = undefined;
     await saveUser(user);
-    return res.status(500).json({ errors: { form: error.message || "Could not send the password reset email." } });
+    return res.status(500).json({ errors: { form: error.message || "Could not send your password reset code." } });
   }
 });
 
 app.post("/api/auth/reset-password", async (req, res) => {
   const cleanEmail = String(req.body?.email || "").trim().toLowerCase();
   const password = String(req.body?.password || "");
-  const token = String(req.body?.token || "");
+  const otp = String(req.body?.otp || "").replace(/\D/g, "");
+  const challengeToken = String(req.body?.challengeToken || "");
   const user = await getUser(cleanEmail);
   if (!user) return res.status(404).json({ errors: { email: "No account found with this email address." } });
 
-  if (!token || !user.resetPasswordTokenHash || hashToken(token) !== user.resetPasswordTokenHash) {
-    return res.status(400).json({ errors: { form: "This password reset link is invalid. Request a new reset link." } });
+  if (!user.resetPasswordOtpHash || !user.resetPasswordOtpChallengeHash ||
+      !challengeToken || hashToken(challengeToken) !== user.resetPasswordOtpChallengeHash) {
+    return res.status(400).json({ errors: { form: "This password reset code request is invalid. Request a new code." } });
   }
 
-  if (!user.resetPasswordExpiresAt || Date.now() > new Date(user.resetPasswordExpiresAt).getTime()) {
-    return res.status(400).json({ errors: { form: "This password reset link has expired. Request a new reset link." } });
+  if (!user.resetPasswordOtpExpiresAt || Date.now() > new Date(user.resetPasswordOtpExpiresAt).getTime()) {
+    return res.status(400).json({ errors: { form: "This password reset code has expired. Request a new code." } });
+  }
+
+  if (Number(user.resetPasswordOtpAttempts || 0) >= 5) {
+    return res.status(429).json({ errors: { form: "Too many incorrect codes. Request a new password reset code." } });
+  }
+
+  if (!/^\d{6}$/.test(otp) || hashToken(`${challengeToken}:${otp}`) !== user.resetPasswordOtpHash) {
+    user.resetPasswordOtpAttempts = Number(user.resetPasswordOtpAttempts || 0) + 1;
+    await saveUser(user);
+    return res.status(401).json({ errors: { otp: "That code is incorrect. Check the email and try again." } });
+  }
+
+  if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,128}$/.test(password)) {
+    return res.status(400).json({
+      errors: { password: "Use 8–128 characters with upper/lowercase, a number, and a symbol." },
+    });
   }
 
   user.passwordHash = hashPassword(password);
+  user.resetPasswordOtpHash = undefined;
+  user.resetPasswordOtpChallengeHash = undefined;
+  user.resetPasswordOtpExpiresAt = undefined;
+  user.resetPasswordOtpAttempts = undefined;
   user.resetPasswordTokenHash = undefined;
   user.resetPasswordExpiresAt = undefined;
   await saveUser(user);

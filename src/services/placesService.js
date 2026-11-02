@@ -281,6 +281,8 @@ export const registerUser = (payload) =>
   postAuth('/auth/register', payload, true);
 export const resetUserPassword = (payload) =>
   postAuth('/auth/reset-password', payload);
+export const requestPasswordResetOtp = (payload) =>
+  postAuth('/auth/request-password-reset-otp', payload, true);
 
 export async function loginUser(payload) {
   let response;
@@ -334,12 +336,33 @@ export const verifyLoginOtp = (payload) =>
 export const verifyRegistrationOtp = (payload) =>
   postAuth('/auth/register/verify-otp', payload);
 
+function createAccountRequestError(data, status) {
+  const message =
+    data?.errors?.form ||
+    data?.errors?.email ||
+    data?.error ||
+    data?.message ||
+    (status === 401
+      ? "Your sign-in session has expired. Please sign in again."
+      : `The account server returned HTTP ${status}.`);
+  const error = new Error(message);
+  error.errors = data?.errors || { form: message };
+  error.status = status;
+  if (status === 401) error.code = "SESSION_EXPIRED";
+  return error;
+}
+
 async function accountRequest(path, { method = 'GET', body, adminToken } = {}) {
+  const session = adminToken ? null : await restoreActiveSession();
+  const accessToken = adminToken || session?.accessToken;
+  if (!adminToken && !accessToken) {
+    const error = new Error("Your sign-in session is missing. Please sign in again.");
+    error.status = 401;
+    error.code = "SESSION_EXPIRED";
+    throw error;
+  }
   let response;
-  let data;
   try {
-    const session = adminToken ? null : await restoreActiveSession();
-    const accessToken = adminToken || session?.accessToken;
     response = await fetch(`${API_BASE}${path}`, {
       method,
       headers: {
@@ -348,19 +371,22 @@ async function accountRequest(path, { method = 'GET', body, adminToken } = {}) {
       },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
-    data = await response.json();
-  } catch (error) {
-    throw new Error(
-      `Could not reach the account server at ${API_BASE}. Start node server.js and try again.`
+  } catch (networkError) {
+    const error = new Error(
+      `Could not reach the account server at ${API_BASE}. Check your connection and try again.`
     );
+    error.code = "NETWORK_UNAVAILABLE";
+    error.cause = networkError;
+    throw error;
+  }
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error(`The account server returned an unreadable response (HTTP ${response.status}).`);
   }
   if (!response.ok) {
-    const error = new Error(
-      data?.errors?.form || data?.errors?.email || 'Account request failed.'
-    );
-    error.errors = data?.errors || { form: error.message };
-    error.status = response.status;
-    throw error;
+    throw createAccountRequestError(data, response.status);
   }
   return data;
 }
@@ -368,10 +394,15 @@ async function accountRequest(path, { method = 'GET', body, adminToken } = {}) {
 // Authenticated JSON request helper for feature-specific service modules.
 export async function apiRequest(path, { method = 'GET', body } = {}) {
   const normalizedPath = String(path || '').replace(/^\/api(?=\/)/, '');
+  const session = await restoreActiveSession();
+  if (!session?.accessToken) {
+    const error = new Error("Your sign-in session is missing. Please sign in again.");
+    error.status = 401;
+    error.code = "SESSION_EXPIRED";
+    throw error;
+  }
   let response;
-  let data;
   try {
-    const session = await restoreActiveSession();
     response = await fetch(`${API_BASE}${normalizedPath}`, {
       method,
       headers: {
@@ -380,15 +411,22 @@ export async function apiRequest(path, { method = 'GET', body } = {}) {
       },
       ...(body === undefined ? {} : { body }),
     });
+  } catch (networkError) {
+    const error = new Error(
+      `Could not reach the account server at ${API_BASE}. Check your connection and try again.`
+    );
+    error.code = "NETWORK_UNAVAILABLE";
+    error.cause = networkError;
+    throw error;
+  }
+  let data;
+  try {
     data = await response.json();
-  } catch (error) {
-    throw new Error(`Could not reach the account server at ${API_BASE}. Start node server.js and try again.`);
+  } catch {
+    throw new Error(`The account server returned an unreadable response (HTTP ${response.status}).`);
   }
   if (!response.ok) {
-    const error = new Error(data?.errors?.form || data?.error || 'Account request failed.');
-    error.status = response.status;
-    error.errors = data?.errors || { form: error.message };
-    throw error;
+    throw createAccountRequestError(data, response.status);
   }
   return data;
 }
@@ -441,30 +479,5 @@ export const deleteAdminUser = (adminToken, email) =>
     method: 'DELETE',
     adminToken,
   });
-
-export async function requestPasswordResetLink(payload) {
-  let response;
-  let data;
-  try {
-    response = await fetch(`${API_BASE}/auth/request-password-reset`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    data = await response.json();
-  } catch (error) {
-    throw new Error(`Could not reach the account server at ${API_BASE}. Start node server.js and try again.`);
-  }
-
-  if (!response.ok) {
-    const error = new Error(data?.errors?.form || data?.errors?.email || "Password reset request failed.");
-    error.errors = data?.errors && Object.keys(data.errors).length > 0
-      ? data.errors
-      : { form: error.message };
-    throw error;
-  }
-
-  return data;
-}
 
 export { API_BASE };

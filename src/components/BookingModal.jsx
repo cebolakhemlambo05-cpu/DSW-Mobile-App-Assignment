@@ -190,14 +190,14 @@ export default function BookingModal({
               <>
                 <View style={styles.referenceBox}>
                   <Text style={styles.fieldLabel}>BOOKING REFERENCE</Text><Text selectable style={styles.reference}>{booking.bookingReference}</Text>
-                  <Text style={styles.fieldLabel}>PAYMENT REFERENCE</Text><Text selectable style={styles.reference}>{booking.paymentReference}</Text>
+                  <Text style={styles.fieldLabel}>PAY@ PAYMENT REFERENCE</Text><Text selectable style={styles.reference}>{booking.paymentReference}</Text>
                   <Text style={styles.propertyMeta}>{booking.roomQuantity} room{booking.roomQuantity === 1 ? "" : "s"} · {booking.roomSharing} sharing · {booking.nights} night{booking.nights === 1 ? "" : "s"}</Text>
                   <Text style={styles.propertyMeta}>Stay: {fmt(booking.accommodationTotal, booking.currency)} · Activities: {fmt(booking.activitiesTotal, "ZAR")}</Text>
                   <Text style={styles.dueText}>Trip total: {fmt(booking.amount, booking.currency)}</Text>
                 </View>
                 <Text style={styles.sectionTitle}>Select how you plan to pay</Text>
                 <View style={styles.methodRow}>{["Card", "Instant EFT", "Bank / ATM"].map((method) => <Pressable key={method} onPress={() => setPaymentMethod(method)} style={[styles.method, paymentMethod === method && styles.methodActive]}><Text style={[styles.methodText, paymentMethod === method && styles.methodTextActive]}>{method}</Text></Pressable>)}</View>
-                <Text style={styles.notice}>Your preferred payment method will be saved with your reservation details.</Text>
+                <Text style={styles.notice}>The PAY@ value is a reference for this reservation, not a payment number. This app does not collect or process payment; your reservation and payment remain pending until confirmed by the provider.</Text>
                 <Pressable onPress={reserveNow} disabled={submitting} style={[styles.primary, submitting && styles.primaryDisabled]}><Text style={styles.primaryText}>{submitting ? "Saving reservation…" : "Reserve now"}</Text></Pressable>
               </>
             )}

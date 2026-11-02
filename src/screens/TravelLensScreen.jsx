@@ -20,19 +20,39 @@ export default function TravelLensScreen({ user, onBack, onSelectAttraction }) {
     setLoading(true);
     setError("");
     setResult(null);
+    let imageSelected = false;
     try {
       const picture = await picker();
       if (picture.canceled) return;
       const asset = picture.assets?.[0];
       if (!asset?.base64 || !asset?.uri) throw new Error("The camera did not return a usable picture.");
+      imageSelected = true;
       setPhoto(asset.uri);
       const catalogue = ATTRACTIONS.map(({ id, name, location, description }) => ({ id, name, location, description }));
-      setResult(await identifyLandmark(user?.email, asset.base64, catalogue));
+      const recognition = await identifyLandmark(user?.email, asset.base64, catalogue);
+      setResult(
+        recognition?.status === "identified" && recognition.match
+          ? recognition
+          : {
+              ...recognition,
+              status: "not_found",
+              match: null,
+              message:
+                "We couldn't recognise the landmark in this photo. Try a clearer photo or choose one of the suggested matches.",
+            }
+      );
     } catch (err) {
-      const message = String(err.message || "");
-      setError(/not configured|OPENAI_API_KEY/i.test(message)
-        ? "Travel Lens isn't available on this service yet. Please try again later."
-        : message || "Could not process this image.");
+      if (imageSelected) {
+        setResult({
+          status: "not_found",
+          match: null,
+          possibleMatches: [],
+          message: "We couldn't recognise a landmark in this photo. Try a clearer picture or try again in a moment.",
+        });
+      } else {
+        const message = String(err.message || "");
+        setError(message || "Could not open that picture. Please try another photo.");
+      }
     } finally {
       setLoading(false);
     }
@@ -79,8 +99,8 @@ export default function TravelLensScreen({ user, onBack, onSelectAttraction }) {
           </Pressable>
         </View>
         {!!error && <Text style={styles.error}>{error}</Text>}
-        {result && <View style={styles.card}>
-          <Text style={styles.label}>{result.status === "identified" ? "Identified landmark" : "Recognition result"}</Text>
+        {result && <View style={[styles.card, result.status !== "identified" && styles.notRecognisedCard]}>
+          <Text style={[styles.label, result.status !== "identified" && styles.notRecognisedLabel]}>{result.status === "identified" ? "Identified landmark" : "Landmark not recognised"}</Text>
           {result.match ? <>
             <Text style={styles.title}>{result.match.name}</Text>
             {!!result.match.location && <Text style={styles.meta}>{result.match.location}</Text>}
@@ -89,7 +109,7 @@ export default function TravelLensScreen({ user, onBack, onSelectAttraction }) {
             {!!result.match.visitorInfo && <Text style={styles.visitor}>{result.match.visitorInfo}</Text>}
             <Text style={styles.meta}>Confidence: {Math.round((result.confidence || 0) * 100)}%</Text>
             <Pressable onPress={() => openAttraction(result.match)} style={styles.secondary}><Text style={styles.primaryText}>Open attraction</Text></Pressable>
-          </> : <><Text style={styles.body}>{result.message || "We couldn't recognize this landmark. Try a clearer photo or choose one of the suggested matches."}</Text>
+          </> : <><Text style={[styles.body, styles.notRecognisedMessage]}>{result.message || "We couldn't recognise a landmark in this photo. Try a clearer picture or try again in a moment."}</Text>
             {(result.possibleMatches || []).map((item) => <Pressable key={item.id || item.name} onPress={() => openAttraction(item)} style={styles.matchRow}><Text style={styles.matchName}>{item.name}</Text><Text style={styles.meta}>{item.location}</Text></Pressable>)}
           </>}
         </View>}
@@ -118,10 +138,13 @@ const styles = StyleSheet.create({
   primaryText: { color: colors.ivory, fontFamily: fonts.bodyBold },
   error: { color: colors.terra, fontFamily: fonts.bodySemiBold },
   card: { gap: 9, padding: 16, borderRadius: 18, backgroundColor: colors.ivory },
+  notRecognisedCard: { backgroundColor: "#E7F0E7", borderWidth: 1, borderColor: "#C2D9C5" },
   label: { color: colors.sky, fontFamily: fonts.bodyBold, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.6 },
+  notRecognisedLabel: { color: colors.savanna },
   title: { color: colors.charcoal, fontFamily: fonts.display, fontSize: 24 },
   meta: { color: colors.charcoal, opacity: 0.56, fontSize: 12 },
   body: { color: colors.charcoal, opacity: 0.74, lineHeight: 20 },
+  notRecognisedMessage: { color: colors.savanna, opacity: 1 },
   visitor: { color: colors.savanna, fontFamily: fonts.bodySemiBold, lineHeight: 20 },
   secondary: { minHeight: 48, padding: 12, borderRadius: 13, backgroundColor: colors.savanna, alignItems: "center", justifyContent: "center" },
   secondaryText: { color: colors.ivory, fontFamily: fonts.bodyBold },

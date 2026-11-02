@@ -17,7 +17,7 @@ This project is configured for Expo Application Services (EAS) and is linked to 
 
 Deploy the backend first using the `render.yaml` Blueprint and set its server-side secrets in Render. To build an Android install APK, sign in to the linked Expo account and run `npx eas-cli build --platform android --profile preview`. For iOS internal ad hoc installs, register test devices; TestFlight/App Store distribution requires Apple Developer and App Store Connect access. Production store builds use `npx eas-cli build --platform android --profile production` and `npx eas-cli build --platform ios --profile production`.
 
-`render.yaml` defines the Render backend. Its build also exports the web app, and the service serves that app alongside `/api`; password-reset links therefore open the deployed reset form instead of a development-only localhost URL. Set `FIREBASE_SERVICE_ACCOUNT_JSON`, admin credentials, Hotelbeds credentials, EmailJS variables, and `OPENAI_API_KEY` as appropriate in the Render dashboard; these values must never be committed. Travel Lens requires `OPENAI_API_KEY` in the Render web service environment; adding it to a local `.env` or the APK does not configure the deployed backend. After setting it, redeploy the Render service and check `travelLensConfigured` at `/api/health`; `adminConfigured` reports whether primary admin credentials are loaded without revealing their values. `OPENAI_API_KEY` is only used by the backend for Travel Lens landmark recognition and is not required for building the mobile app. The current free Render service can sleep, and its in-memory sign-in sessions are cleared on restart, so users may need to sign in again.
+`render.yaml` defines the Render backend. Its build also exports the web app, and the service serves that app alongside `/api`. Set `FIREBASE_SERVICE_ACCOUNT_JSON`, admin credentials, Hotelbeds credentials, EmailJS variables, and `OPENAI_API_KEY` as appropriate in the Render dashboard; these values must never be committed. Travel Lens requires `OPENAI_API_KEY` in the Render web service environment; adding it to a local `.env` or the APK does not configure the deployed backend. After setting it, redeploy the Render service and check `travelLensConfigured` at `/api/health`; `adminConfigured` reports whether primary admin credentials are loaded without revealing their values. `OPENAI_API_KEY` is only used by the backend for Travel Lens landmark recognition and is not required for building the mobile app. The current free Render service can sleep, and its in-memory sign-in sessions are cleared on restart, so users may need to sign in again.
 
 The app uses Expo SDK 58, which targets Android API 36 and uses the current EAS Android/iOS toolchains. The `preview` profile creates an Android APK for device testing; the `production` profile creates store builds for Android and iOS. Run `npx expo-doctor` and export both platforms before starting store builds. The backend health check is available at `/api/health`. Hotelbeds is currently configured to use its test environment, so inventory and quota are for testing; reservation requests are saved in the app but do not confirm a hotel booking or collect payment. Before store submission, add a public privacy-policy URL and complete the Google Play Data safety and Apple App Privacy disclosures using the actual production data flows.
 
@@ -36,13 +36,28 @@ ADMIN_PASSWORD=replace_with_a_strong_unique_password
 Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` to your admin login credentials in `backend/.env`; do not put them in the app or share/commit that file. Restart the backend after changing credentials.
 For Render, add these as service environment variables in the Render dashboard; the local `backend/.env` file is ignored by Git and is not deployed. Save the environment changes and redeploy the service before using admin sign-in.
 
-Password-reset emails use `EMAILJS_TEMPLATE_ID` and pass the reset URL as
-`reset_link` (also available as `link`). The URL must open the web app, not the
-API server. For local web testing, the app runs at `http://localhost:8082`; set
-`APP_BASE_URL=http://localhost:8082` if the reset request does not include a
-browser origin. In Render, set `APP_BASE_URL` to the public HTTPS web-app URL.
-This is required for password-reset requests from mobile clients, which do not
-send a browser origin. Never use a localhost URL for a deployed app.
+Password resets use a one-time email code sent with `EMAILJS_OTP_TEMPLATE_ID`,
+the same EmailJS template used for sign-in and registration codes. The app
+requests the code, then accepts the 6-digit code and a new password. Codes
+expire after 10 minutes and are limited to five attempts. Configure the OTP
+template and its EmailJS service/public key on the backend; reset emails do not
+require an app URL or a reset-link template.
+
+### Trip tools
+
+Signed-in users can open **Expenses** from the Day Plan to create trip-linked
+groups, enter shared costs, split equally or by custom member amounts, and track
+settlements. The screen separates the Day Plan's stay/activity estimate from
+expenses actually logged; it shows the group total and each member's share.
+The Day Plan summarizes linked group costs and per-person amounts. **Packing**
+builds a trip checklist from essentials, attraction type, selected activities,
+available forecast for the stay dates, and amenities provided by the selected
+stay. Forecast suggestions are limited to the next seven days. Packing progress
+saves automatically; **Mark trip ready** confirms all current checklist items
+are packed, and the packed items and completion status appear on the Day Plan.
+Custom items are supported. Both features save their data to the signed-in
+account through the authenticated `/api/users/:email/expense-groups` and
+`/api/users/:email/packing-lists` routes.
 
 ### Admin website and secondary admin
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, AppState, Platform, View, StyleSheet } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
@@ -24,11 +24,13 @@ import HomeScreen from "./src/screens/HomeScreen";
 import AttractionScreen from "./src/screens/AttractionScreen";
 import TravelLensScreen from "./src/screens/TravelLensScreen";
 import DayPlanScreen from "./src/screens/DayPlanScreen";
+import ExpenseSplitterScreen from "./src/screens/ExpenseSplitterScreen";
+import PackingAssistantScreen from "./src/screens/PackingAssistantScreen";
 import { isStrongPassword, normalizeEmail, validateEmail, validateName } from "./src/utils/validation";
 import {
   loginUser,
   registerUser,
-  requestPasswordResetLink,
+  requestPasswordResetOtp,
   resetUserPassword,
   verifyLoginOtp,
   verifyRegistrationOtp,
@@ -42,6 +44,7 @@ import {
 } from './src/services/placesService';
 import {
   clearActiveSession,
+  clearOfflineVerifier,
   clearPendingChanges,
   removeCachedAccount,
   restoreActiveSession,
@@ -91,6 +94,14 @@ function PlannerApp() {
   const pendingCredentials = useRef(null);
   const dayPlanRef = useRef(dayPlan);
   dayPlanRef.current = dayPlan;
+
+  const handleExpiredSession = useCallback(async () => {
+    await clearActiveSession();
+    setCurrentUser(null);
+    setAuthMode("login");
+    setScreen("home");
+    setSyncNotice("");
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -415,14 +426,14 @@ function PlannerApp() {
     }
 
     try {
-      await requestPasswordResetLink({ email: cleanEmail });
-      return { ok: true };
+      const result = await requestPasswordResetOtp({ email: cleanEmail });
+      return { ok: true, challengeToken: result.challengeToken };
     } catch (error) {
       return { ok: false, errors: error.errors || { form: error.message } };
     }
   };
 
-  const handleResetPassword = async (email, newPassword, token) => {
+  const handleResetPassword = async (email, newPassword, otp, challengeToken) => {
     const cleanEmail = normalizeEmail(email);
 
     if (!validateEmail(cleanEmail)) {
@@ -443,8 +454,14 @@ function PlannerApp() {
       const user = await resetUserPassword({
         email: cleanEmail,
         password: newPassword,
-        token,
+        otp,
+        challengeToken,
       });
+      try {
+        await clearOfflineVerifier(cleanEmail);
+      } catch (error) {
+        console.error('Could not clear the old offline password verifier:', error);
+      }
       return { ok: true, userName: user.firstName };
     } catch (error) {
       return { ok: false, errors: error.errors || { form: error.message } };
@@ -633,7 +650,6 @@ function PlannerApp() {
             {authMode === 'forgot' && (
               <ForgotPasswordScreen
                 initialEmail={passwordReset?.email || ''}
-                resetToken={passwordReset?.token || ''}
                 onRequestReset={handleRequestPasswordReset}
                 onResetPassword={handleResetPassword}
                 onBack={() => {
@@ -687,6 +703,8 @@ function PlannerApp() {
             {screen === 'dayplan' && (
               <DayPlanScreen
                 plan={dayPlan}
+                user={currentUser}
+                onSessionExpired={handleExpiredSession}
                 onBack={() => setScreen('home')}
                 onRemove={(id) =>
                   updatePlan(dayPlan.filter((e) => e.attractionId !== id))
@@ -694,6 +712,8 @@ function PlannerApp() {
                 onClearAll={() => updatePlan([])}
                 onSelectAttraction={selectAttraction}
                 onGroupSizeChange={updatePlanGroupSize}
+                onViewExpenses={() => setScreen('expenses')}
+                onViewPacking={() => setScreen('packing')}
               />
             )}
             {screen === 'travelLens' && (
@@ -704,6 +724,22 @@ function PlannerApp() {
                   setSelectedAttraction(attraction);
                   setScreen('attraction');
                 }}
+              />
+            )}
+            {screen === 'expenses' && (
+              <ExpenseSplitterScreen
+                user={currentUser}
+                plan={dayPlan}
+                onBack={() => setScreen('dayplan')}
+                onSessionExpired={handleExpiredSession}
+              />
+            )}
+            {screen === 'packing' && (
+              <PackingAssistantScreen
+                user={currentUser}
+                plan={dayPlan}
+                onBack={() => setScreen('dayplan')}
+                onSessionExpired={handleExpiredSession}
               />
             )}
             {screen === 'privacy' && (
@@ -791,11 +827,18 @@ const styles = StyleSheet.create({
 });
 
 function getInitialResetParams() {
-  const search = typeof window !== "undefined" ? window.location?.search : undefined;
-  if (typeof search !== "string" || !search) return null;
-
-  const params = new URLSearchParams(search);
-  const token = params.get("resetToken");
+  if (typeof window === "undefined" || !window.location) return null;
+  const { search, hash } = window.location;
+  const params = new URLSearchParams(search || "");
+  if (hash) {
+    const hashQuery = hash.includes("?")
+      ? hash.slice(hash.indexOf("?") + 1)
+      : hash.replace(/^#\/?/, "");
+    for (const [key, value] of new URLSearchParams(hashQuery)) {
+      if (!params.has(key)) params.set(key, value);
+    }
+  }
+  const token = params.get("resetToken") || params.get("token");
   const email = params.get("email");
 
   if (!token || !email) return null;
