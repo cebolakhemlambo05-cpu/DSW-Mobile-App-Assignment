@@ -14,24 +14,23 @@ export default function PhotoImage({
     setFailed(false);
   }, [uri, fallbackUri]);
 
-  const imageUri = failed ? fallbackUri : uri || fallbackUri;
-  const imageSource = typeof imageUri === "number" ? imageUri : { uri: imageUri };
-  const fallbackSource =
-    typeof fallbackUri === "number" ? fallbackUri : { uri: fallbackUri };
+  const imageUri = failed ? null : uri;
   const { resizeMode = "cover", ...restImageProps } = imageProps;
 
   return (
     <View style={style}>
-      <Image
-        source={fallbackSource}
-        resizeMode={resizeMode}
-        style={StyleSheet.absoluteFill}
-        accessible={false}
-      />
-      {imageUri !== fallbackUri && (
+      {fallbackUri != null && (
+        <Image
+          source={typeof fallbackUri === "number" ? fallbackUri : { uri: fallbackUri }}
+          resizeMode={resizeMode}
+          style={StyleSheet.absoluteFill}
+          accessible={false}
+        />
+      )}
+      {imageUri != null && (
         <Image
           {...restImageProps}
-          source={imageSource}
+          source={typeof imageUri === "number" ? imageUri : { uri: imageUri }}
           resizeMode={resizeMode}
           style={StyleSheet.absoluteFill}
           onError={() => setFailed(true)}

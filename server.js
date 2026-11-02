@@ -2176,8 +2176,11 @@ app.post("/api/auth/login", async (req, res) => {
   const cleanEmail = String(req.body?.email || "").trim().toLowerCase();
   const password = String(req.body?.password || "");
 
-  const isPrimaryAdmin = Boolean(ADMIN_EMAIL && ADMIN_PASSWORD && cleanEmail === ADMIN_EMAIL && password === ADMIN_PASSWORD);
-  const isSecondaryAdmin = Boolean(SECONDARY_ADMIN_EMAIL && SECONDARY_ADMIN_PASSWORD && cleanEmail === SECONDARY_ADMIN_EMAIL && password === SECONDARY_ADMIN_PASSWORD);
+  const adminPassword = normalizeAdminConfigValue(password);
+  const matchesPrimaryAdmin = Boolean(ADMIN_EMAIL && cleanEmail === ADMIN_EMAIL);
+  const matchesSecondaryAdmin = Boolean(SECONDARY_ADMIN_EMAIL && cleanEmail === SECONDARY_ADMIN_EMAIL);
+  const isPrimaryAdmin = Boolean(matchesPrimaryAdmin && ADMIN_PASSWORD && adminPassword === ADMIN_PASSWORD);
+  const isSecondaryAdmin = Boolean(matchesSecondaryAdmin && SECONDARY_ADMIN_PASSWORD && adminPassword === SECONDARY_ADMIN_PASSWORD);
   if (isPrimaryAdmin || isSecondaryAdmin) {
     const role = isPrimaryAdmin ? 'superuser' : 'secondary-admin';
     const adminToken = crypto.randomBytes(32).toString('hex');
@@ -2199,6 +2202,23 @@ app.post("/api/auth/login", async (req, res) => {
         dayPlan: [],
         isAdmin: true,
         adminRole: role,
+      },
+    });
+  }
+
+  if (matchesPrimaryAdmin) {
+    return res.status(401).json({
+      errors: {
+        form: "This admin email is recognized, but the password does not match the ADMIN_PASSWORD configured on this server. Check the Render service environment and redeploy.",
+      },
+    });
+  }
+  if (matchesSecondaryAdmin) {
+    return res.status(401).json({
+      errors: {
+        form: SECONDARY_ADMIN_PASSWORD
+          ? "This secondary admin email is recognized, but the password does not match the SECONDARY_ADMIN_PASSWORD configured on this server. Check the Render service environment and redeploy."
+          : "This secondary admin email is recognized, but the secondary admin account is not configured on this server. Set SECONDARY_ADMIN_EMAIL and SECONDARY_ADMIN_PASSWORD in the Render service environment and redeploy.",
       },
     });
   }
