@@ -20,7 +20,7 @@ services:
       - key: FIREBASE_SERVICE_ACCOUNT_JSON
         sync: false
       - key: ADMIN_EMAIL
-        sync: false
+        value: admin@allinoneplaner.com
       - key: ADMIN_PASSWORD
         sync: false
       - key: SECONDARY_ADMIN_EMAIL
