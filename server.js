@@ -11,6 +11,19 @@ dotenv.config({
   override: false,
   quiet: true,
 });
+
+function normalizeAdminConfigValue(value) {
+  const normalized = String(value || '').trim();
+  const quote = normalized[0];
+  if (
+    (quote === '"' || quote === "'") &&
+    normalized[normalized.length - 1] === quote
+  ) {
+    return normalized.slice(1, -1).trim();
+  }
+  return normalized;
+}
+
 const {
   getRegistrationChallenge,
   getAuditEvents,
@@ -60,10 +73,10 @@ const EMAILJS_PRIVATE_KEY = process.env.EMAILJS_PRIVATE_KEY || '';
 const EMAILJS_BOOKING_SERVICE_ID = process.env.EMAILJS_BOOKING_SERVICE_ID || '';
 const EMAILJS_BOOKING_PUBLIC_KEY = process.env.EMAILJS_BOOKING_PUBLIC_KEY || '';
 const EMAILJS_BOOKING_PRIVATE_KEY = process.env.EMAILJS_BOOKING_PRIVATE_KEY || '';
-const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || '').trim().toLowerCase();
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
-const SECONDARY_ADMIN_EMAIL = (process.env.SECONDARY_ADMIN_EMAIL || '').trim().toLowerCase();
-const SECONDARY_ADMIN_PASSWORD = process.env.SECONDARY_ADMIN_PASSWORD || '';
+const ADMIN_EMAIL = normalizeAdminConfigValue(process.env.ADMIN_EMAIL).toLowerCase();
+const ADMIN_PASSWORD = normalizeAdminConfigValue(process.env.ADMIN_PASSWORD);
+const SECONDARY_ADMIN_EMAIL = normalizeAdminConfigValue(process.env.SECONDARY_ADMIN_EMAIL).toLowerCase();
+const SECONDARY_ADMIN_PASSWORD = normalizeAdminConfigValue(process.env.SECONDARY_ADMIN_PASSWORD);
 const adminSessions = new Map();
 const userSessions = new Map();
 const bookingEmailAttempts = new Map();

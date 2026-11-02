@@ -262,9 +262,9 @@ export default function LoginScreen({
                 ) : (
                   <Text style={styles.submitText}>
                     {adminRoleHint === 'superuser'
-                      ? 'Log in as superuser admin'
+                      ? 'Sign in as Admin'
                       : adminRoleHint === 'secondary-admin'
-                        ? 'Log in as secondary admin'
+                        ? 'Sign in as Secondary Admin'
                         : 'Sign in'}
                   </Text>
                 )}

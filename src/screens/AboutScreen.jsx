@@ -1,12 +1,24 @@
-import React from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useState } from "react";
+import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, fonts } from "../theme/theme";
 import { IconBack } from '../components/Icons';
 import AppFooter from '../components/AppFooter';
 import BrandLogo from '../components/BrandLogo';
+import { ATTRACTION_PHOTO_CREDITS } from "../data/attractionPhotoCredits";
 
 export default function AboutScreen({ onBack, onPrivacy, onAbout }) {
+  const [showPhotoCredits, setShowPhotoCredits] = useState(false);
+
+  const openPhotoSource = async (sourceUrl) => {
+    try {
+      await Linking.openURL(sourceUrl);
+    } catch (error) {
+      console.warn("Could not open the attraction photo source:", error);
+      Alert.alert("Unable to open source", "Please try again when you have an internet connection.");
+    }
+  };
+
   return (
     <View style={styles.screen}>
       <SafeAreaView edges={['top']} style={styles.header}>
@@ -54,6 +66,29 @@ export default function AboutScreen({ onBack, onPrivacy, onAbout }) {
           between several services and a calculator.
         </Text>
 
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ expanded: showPhotoCredits }}
+          onPress={() => setShowPhotoCredits((visible) => !visible)}
+          style={styles.creditToggle}
+        >
+          <Text style={styles.heading}>Attraction photo credits ({ATTRACTION_PHOTO_CREDITS.length})</Text>
+          <Text style={styles.body}>
+            {showPhotoCredits ? "Hide photo credits" : "View creators, licenses, and source links"}
+          </Text>
+        </Pressable>
+        {showPhotoCredits && ATTRACTION_PHOTO_CREDITS.map((credit) => (
+          <View key={credit.id} style={styles.creditRow}>
+            <Text style={styles.creditTitle}>{credit.name}</Text>
+            <Text style={styles.body}>
+              Photo by {credit.author}. {credit.license}. Resized for offline use.
+            </Text>
+            <Pressable onPress={() => openPhotoSource(credit.sourceUrl)}>
+              <Text style={styles.creditLink}>View Wikimedia source and license</Text>
+            </Pressable>
+          </View>
+        ))}
+
         <Text style={styles.heading}>Version</Text>
         <Text style={styles.body}>All-In-One-Planner 1.0.0</Text>
       </ScrollView>
@@ -89,4 +124,21 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   body: { fontSize: 14, lineHeight: 21, color: colors.charcoal, opacity: 0.75 },
+  creditToggle: { gap: 4, paddingVertical: 8 },
+  creditRow: {
+    gap: 4,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: colors.ivory,
+  },
+  creditTitle: {
+    fontSize: 14,
+    fontFamily: fonts.bodyBold,
+    color: colors.charcoal,
+  },
+  creditLink: {
+    color: colors.sky,
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 12,
+  },
 });
